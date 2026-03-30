@@ -10,6 +10,9 @@ import Clientes from "./pages/Clientes";
 import Projetos from "./pages/Projetos";
 import Financeiro from "./pages/Financeiro";
 import Estrategia from "./pages/Estrategia";
+import Comercial from "./pages/Comercial";
+import ZaytanMind from "./pages/ZaytanMind";
+import Operacional from "./pages/Operacional";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +31,9 @@ const App = () => (
             <Route path="/projetos" element={<Projetos />} />
             <Route path="/financeiro" element={<Financeiro />} />
             <Route path="/estrategia" element={<Estrategia />} />
+            <Route path="/comercial" element={<Comercial />} />
+            <Route path="/zaytan-mind" element={<ZaytanMind />} />
+            <Route path="/operacional" element={<Operacional />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>

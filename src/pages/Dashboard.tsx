@@ -1,6 +1,5 @@
 import {
   TrendingUp,
-  TrendingDown,
   DollarSign,
   Users,
   AlertTriangle,
@@ -36,38 +35,10 @@ const healthData = [
 ];
 
 const metrics = [
-  {
-    label: "MRR",
-    value: "R$ 42.800",
-    change: "+12.5%",
-    trend: "up" as const,
-    icon: DollarSign,
-    description: "vs. mês anterior",
-  },
-  {
-    label: "Churn Rate",
-    value: "2.1%",
-    change: "-0.8%",
-    trend: "down" as const,
-    icon: Users,
-    description: "vs. mês anterior",
-  },
-  {
-    label: "Margem Média",
-    value: "68%",
-    change: "+3.2%",
-    trend: "up" as const,
-    icon: BarChart3,
-    description: "por projeto",
-  },
-  {
-    label: "CAC",
-    value: "R$ 380",
-    change: "-15%",
-    trend: "down" as const,
-    icon: ArrowUpRight,
-    description: "custo de aquisição",
-  },
+  { label: "MRR", value: "R$ 42.800", change: "+12.5%", trend: "up" as const, icon: DollarSign, description: "vs. mês anterior" },
+  { label: "Churn Rate", value: "2.1%", change: "-0.8%", trend: "down" as const, icon: Users, description: "vs. mês anterior" },
+  { label: "Margem Média", value: "68%", change: "+3.2%", trend: "up" as const, icon: BarChart3, description: "por projeto" },
+  { label: "CAC", value: "R$ 380", change: "-15%", trend: "down" as const, icon: ArrowUpRight, description: "custo de aquisição" },
 ];
 
 const Dashboard = () => {
@@ -78,7 +49,6 @@ const Dashboard = () => {
         <p className="text-sm text-muted-foreground mt-1">Visão geral da operação Zaytan</p>
       </div>
 
-      {/* Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((m) => (
           <div key={m.label} className="metric-card animate-fade-in">
@@ -89,12 +59,8 @@ const Dashboard = () => {
               <span
                 className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                   m.label === "Churn Rate" || m.label === "CAC"
-                    ? m.trend === "down"
-                      ? "bg-success/10 text-success"
-                      : "bg-destructive/10 text-destructive"
-                    : m.trend === "up"
-                    ? "bg-success/10 text-success"
-                    : "bg-destructive/10 text-destructive"
+                    ? m.trend === "down" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                    : m.trend === "up" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
                 }`}
               >
                 {m.change}
@@ -107,7 +73,6 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue Chart */}
         <div className="metric-card lg:col-span-2 animate-fade-in" style={{ animationDelay: "0.1s" }}>
           <h3 className="text-sm font-semibold mb-4">Projeção de Faturamento (6 meses)</h3>
           <div className="h-[280px]">
@@ -115,36 +80,29 @@ const Dashboard = () => {
               <AreaChart data={revenueProjection}>
                 <defs>
                   <linearGradient id="colorProjetado" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(152, 60%, 45%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(152, 60%, 45%)" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(17, 100%, 58%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(17, 100%, 58%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(225, 15%, 18%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 55%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 55%)" tickFormatter={(v) => `${v / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} className="text-muted-foreground" />
+                <YAxis tick={{ fontSize: 12 }} className="text-muted-foreground" tickFormatter={(v) => `${v / 1000}k`} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "hsl(225, 22%, 11%)",
-                    border: "1px solid hsl(225, 15%, 18%)",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
                     fontSize: "12px",
+                    color: "hsl(var(--foreground))",
                   }}
                   formatter={(value: number) => [`R$ ${value.toLocaleString()}`, ""]}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="projetado"
-                  stroke="hsl(152, 60%, 45%)"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorProjetado)"
-                />
+                <Area type="monotone" dataKey="projetado" stroke="hsl(17, 100%, 58%)" strokeWidth={2} fillOpacity={1} fill="url(#colorProjetado)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Health Indicator */}
         <div className="metric-card animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <h3 className="text-sm font-semibold mb-4">Saúde da Operação</h3>
           <div className="space-y-4">
@@ -183,7 +141,7 @@ const Dashboard = () => {
           <div className="mt-6 h-[100px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={healthData}>
-                <Bar dataKey="value" fill="hsl(152, 60%, 45%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="value" fill="hsl(17, 100%, 58%)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
