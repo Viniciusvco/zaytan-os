@@ -4,6 +4,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilter";
+import { ContextFilters } from "@/components/ContextFilters";
 
 interface RevenueEntry { id: string; client: string; type: "mrr" | "setup" | "oneoff"; value: number; description: string }
 interface CostEntry { id: string; name: string; type: "fixo" | "variavel"; value: number; project?: string }
@@ -46,9 +48,21 @@ const nicheData = [
 ];
 const COLORS = ["hsl(17, 100%, 58%)", "hsl(200, 70%, 55%)", "hsl(262, 60%, 60%)", "hsl(152, 60%, 42%)", "hsl(340, 65%, 55%)"];
 
+// Simulated months of relationship for LTV
+const clientMonths: Record<string, number> = {
+  "Escritório Silva": 6,
+  "Clínica Bella": 4,
+  "Imobiliária Nova Era": 2,
+  "TechShop": 5,
+  "Construtora Horizonte": 1,
+};
+
 const Financeiro = () => {
   const [revenues, setRevenues] = useState(initialRevenues);
   const [costs, setCosts] = useState(initialCosts);
+  const [dateRange, setDateRange] = useState(useDefaultDateRange());
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [showAddRev, setShowAddRev] = useState(false);
   const [showAddCost, setShowAddCost] = useState(false);
   const [editRev, setEditRev] = useState<RevenueEntry | null>(null);
@@ -56,6 +70,12 @@ const Financeiro = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ type: "rev" | "cost"; id: string } | null>(null);
   const [newRev, setNewRev] = useState<Omit<RevenueEntry, "id">>({ client: "", type: "mrr", value: 0, description: "" });
   const [newCost, setNewCost] = useState<Omit<CostEntry, "id">>({ name: "", type: "fixo", value: 0 });
+
+  const filteredRevenues = revenues.filter((r) => {
+    const matchSearch = r.client.toLowerCase().includes(search.toLowerCase()) || r.description.toLowerCase().includes(search.toLowerCase());
+    const matchType = typeFilter === "all" || r.type === typeFilter;
+    return matchSearch && matchType;
+  });
 
   const mrrTotal = revenues.filter(r => r.type === "mrr").reduce((s, r) => s + r.value, 0);
   const setupTotal = revenues.filter(r => r.type === "setup").reduce((s, r) => s + r.value, 0);
@@ -66,14 +86,16 @@ const Financeiro = () => {
   const lucro = totalReceita - totalCustos;
   const margem = totalReceita > 0 ? Math.round((lucro / totalReceita) * 100) : 0;
 
-  // Margin per client
   const clientNames = [...new Set(revenues.map(r => r.client))];
   const clientMargins = clientNames.map(name => {
     const rev = revenues.filter(r => r.client === name).reduce((s, r) => s + r.value, 0);
+    const mrrClient = revenues.filter(r => r.client === name && r.type === "mrr").reduce((s, r) => s + r.value, 0);
     const costShare = Math.round(totalCustos * (rev / totalReceita));
     const profit = rev - costShare;
     const margin = rev > 0 ? Math.round((profit / rev) * 100) : 0;
-    return { client: name, revenue: rev, costs: costShare, profit, margin };
+    const months = clientMonths[name] || 1;
+    const ltv = mrrClient * months + revenues.filter(r => r.client === name && r.type !== "mrr").reduce((s, r) => s + r.value, 0);
+    return { client: name, revenue: rev, costs: costShare, profit, margin, ltv };
   });
 
   const handleDeleteConfirm = () => {
@@ -85,7 +107,10 @@ const Financeiro = () => {
 
   return (
     <div className="space-y-6 max-w-7xl">
-      <div><h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1><p className="text-sm text-muted-foreground mt-1">Receitas, custos operacionais e margem real</p></div>
+      <div className="flex items-center justify-between">
+        <div><h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1><p className="text-sm text-muted-foreground mt-1">Receitas, custos operacionais e margem real</p></div>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {[
@@ -129,19 +154,37 @@ const Financeiro = () => {
         </div>
       </div>
 
-      {/* Margem por Cliente */}
+      {/* Margem por Cliente with LTV */}
       <div className="metric-card">
         <h3 className="text-sm font-semibold mb-4">Margem Real por Cliente</h3>
-        <table className="w-full"><thead><tr className="border-b border-border"><th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Receita</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Custos</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Lucro</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Margem</th></tr></thead>
-          <tbody>{clientMargins.map(c => <tr key={c.client} className="border-b border-border last:border-0"><td className="py-2 text-sm font-medium">{c.client}</td><td className="py-2 text-right text-sm">R$ {c.revenue.toLocaleString()}</td><td className="py-2 text-right text-sm text-destructive">R$ {c.costs.toLocaleString()}</td><td className="py-2 text-right text-sm font-semibold text-success">R$ {c.profit.toLocaleString()}</td><td className="py-2 text-right"><span className={`text-xs px-2 py-0.5 rounded-full ${c.margin >= 65 ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>{c.margin}%</span></td></tr>)}</tbody>
+        <table className="w-full"><thead><tr className="border-b border-border"><th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Receita</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Custos</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Lucro</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Margem</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">LTV Estimado</th></tr></thead>
+          <tbody>{clientMargins.map(c => <tr key={c.client} className="border-b border-border last:border-0"><td className="py-2 text-sm font-medium">{c.client}</td><td className="py-2 text-right text-sm">R$ {c.revenue.toLocaleString()}</td><td className="py-2 text-right text-sm text-destructive">R$ {c.costs.toLocaleString()}</td><td className="py-2 text-right text-sm font-semibold text-success">R$ {c.profit.toLocaleString()}</td><td className="py-2 text-right"><span className={`text-xs px-2 py-0.5 rounded-full ${c.margin >= 65 ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>{c.margin}%</span></td><td className="py-2 text-right text-sm font-medium text-primary">R$ {c.ltv.toLocaleString()}</td></tr>)}</tbody>
         </table>
       </div>
 
-      {/* Revenue Entries */}
+      {/* Revenue Entries with filters */}
       <div className="metric-card">
         <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Lançamentos de Receita</h3><Button size="sm" variant="outline" onClick={() => setShowAddRev(true)}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar</Button></div>
+        <div className="mb-4">
+          <ContextFilters
+            search={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Buscar por cliente ou descrição..."
+            filterGroups={[{
+              key: "type", label: "Tipo",
+              options: [
+                { label: "Todos", value: "all" },
+                { label: "MRR", value: "mrr" },
+                { label: "Setup", value: "setup" },
+                { label: "One-off", value: "oneoff" },
+              ],
+            }]}
+            activeFilters={{ type: typeFilter }}
+            onFilterChange={(_, v) => setTypeFilter(v)}
+          />
+        </div>
         <table className="w-full"><thead><tr className="border-b border-border"><th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th><th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th><th className="text-left text-xs font-medium text-muted-foreground pb-2">Descrição</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th></tr></thead>
-          <tbody>{revenues.map(r => <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30"><td className="py-2 text-sm">{r.client}</td><td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "mrr" ? "bg-primary/10 text-primary" : r.type === "setup" ? "bg-info/10 text-info" : "bg-warning/10 text-warning"}`}>{r.type.toUpperCase()}</span></td><td className="py-2 text-sm text-muted-foreground">{r.description}</td><td className="py-2 text-right text-sm font-medium">R$ {r.value.toLocaleString()}</td><td className="py-2 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditRev({ ...r })} className="p-1 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button><button onClick={() => setDeleteTarget({ type: "rev", id: r.id })} className="p-1 rounded hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button></div></td></tr>)}</tbody>
+          <tbody>{filteredRevenues.map(r => <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30"><td className="py-2 text-sm">{r.client}</td><td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "mrr" ? "bg-primary/10 text-primary" : r.type === "setup" ? "bg-info/10 text-info" : "bg-warning/10 text-warning"}`}>{r.type.toUpperCase()}</span></td><td className="py-2 text-sm text-muted-foreground">{r.description}</td><td className="py-2 text-right text-sm font-medium">R$ {r.value.toLocaleString()}</td><td className="py-2 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditRev({ ...r })} className="p-1 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button><button onClick={() => setDeleteTarget({ type: "rev", id: r.id })} className="p-1 rounded hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button></div></td></tr>)}</tbody>
         </table>
       </div>
 
@@ -153,7 +196,7 @@ const Financeiro = () => {
         </table>
       </div>
 
-      {/* Add Revenue Dialog */}
+      {/* Dialogs */}
       <Dialog open={showAddRev} onOpenChange={setShowAddRev}>
         <DialogContent><DialogHeader><DialogTitle>Nova Receita</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -166,7 +209,6 @@ const Financeiro = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Revenue */}
       <Dialog open={!!editRev} onOpenChange={() => setEditRev(null)}>
         <DialogContent><DialogHeader><DialogTitle>Editar Receita</DialogTitle></DialogHeader>
           {editRev && <div className="space-y-3">
@@ -179,7 +221,6 @@ const Financeiro = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Cost */}
       <Dialog open={showAddCost} onOpenChange={setShowAddCost}>
         <DialogContent><DialogHeader><DialogTitle>Novo Custo</DialogTitle></DialogHeader>
           <div className="space-y-3">
@@ -191,7 +232,6 @@ const Financeiro = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Cost */}
       <Dialog open={!!editCost} onOpenChange={() => setEditCost(null)}>
         <DialogContent><DialogHeader><DialogTitle>Editar Custo</DialogTitle></DialogHeader>
           {editCost && <div className="space-y-3">
@@ -203,7 +243,6 @@ const Financeiro = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir lançamento?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter>
