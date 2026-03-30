@@ -14,6 +14,10 @@ import Comercial from "./pages/Comercial";
 import ZaytanMind from "./pages/ZaytanMind";
 import Operacional from "./pages/Operacional";
 import CustomerSuccess from "./pages/CustomerSuccess";
+import Contratos from "./pages/Contratos";
+import Agendamentos from "./pages/Agendamentos";
+import Captacao from "./pages/Captacao";
+import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,21 +28,29 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/pipeline" element={<Pipeline />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/projetos" element={<Projetos />} />
-            <Route path="/financeiro" element={<Financeiro />} />
-            <Route path="/estrategia" element={<Estrategia />} />
-            <Route path="/comercial" element={<Comercial />} />
-            <Route path="/zaytan-mind" element={<ZaytanMind />} />
-            <Route path="/operacional" element={<Operacional />} />
-            <Route path="/cs" element={<CustomerSuccess />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppLayout>
+        <Routes>
+          <Route path="/welcome" element={<Landing />} />
+          <Route path="/*" element={
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/pipeline" element={<Pipeline />} />
+                <Route path="/clientes" element={<Clientes />} />
+                <Route path="/projetos" element={<Projetos />} />
+                <Route path="/contratos" element={<Contratos />} />
+                <Route path="/agendamentos" element={<Agendamentos />} />
+                <Route path="/captacao" element={<Captacao />} />
+                <Route path="/financeiro" element={<Financeiro />} />
+                <Route path="/estrategia" element={<Estrategia />} />
+                <Route path="/comercial" element={<Comercial />} />
+                <Route path="/zaytan-mind" element={<ZaytanMind />} />
+                <Route path="/operacional" element={<Operacional />} />
+                <Route path="/cs" element={<CustomerSuccess />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppLayout>
+          } />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

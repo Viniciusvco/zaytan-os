@@ -9,9 +9,11 @@ import {
   Target,
   ClipboardList,
   HeadphonesIcon,
+  FileText,
+  Calendar,
+  Globe,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import zaytanLogo from "@/assets/zaytan-logo.png";
 import {
   Sidebar,
@@ -32,6 +34,7 @@ const mainItems = [
   { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Projetos", url: "/projetos", icon: FolderOpen },
+  { title: "Contratos", url: "/contratos", icon: FileText },
 ];
 
 const operationItems = [
@@ -39,6 +42,8 @@ const operationItems = [
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Operacional", url: "/operacional", icon: ClipboardList },
   { title: "Customer Success", url: "/cs", icon: HeadphonesIcon },
+  { title: "Agendamentos", url: "/agendamentos", icon: Calendar },
+  { title: "Captação de Leads", url: "/captacao", icon: Globe },
 ];
 
 const strategyItems = [
@@ -109,7 +114,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v3.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v4.0</p>
           </div>
         )}
       </SidebarFooter>
