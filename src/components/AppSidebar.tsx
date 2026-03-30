@@ -1,17 +1,13 @@
 import {
   LayoutDashboard,
   Users,
-  Kanban,
   DollarSign,
-  Lightbulb,
-  FolderOpen,
+  Package,
   Brain,
   Target,
-  ClipboardList,
   HeadphonesIcon,
   FileText,
-  Calendar,
-  Globe,
+  BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import zaytanLogo from "@/assets/zaytan-logo.png";
@@ -31,23 +27,19 @@ import {
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Pipeline", url: "/pipeline", icon: Kanban },
   { title: "Clientes", url: "/clientes", icon: Users },
-  { title: "Projetos", url: "/projetos", icon: FolderOpen },
+  { title: "Produtos", url: "/produtos", icon: Package },
   { title: "Contratos", url: "/contratos", icon: FileText },
 ];
 
 const operationItems = [
   { title: "Comercial", url: "/comercial", icon: Target },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
-  { title: "Operacional", url: "/operacional", icon: ClipboardList },
   { title: "Customer Success", url: "/cs", icon: HeadphonesIcon },
-  { title: "Agendamentos", url: "/agendamentos", icon: Calendar },
-  { title: "Captação de Leads", url: "/captacao", icon: Globe },
+  { title: "Performance", url: "/performance", icon: BarChart3 },
 ];
 
 const strategyItems = [
-  { title: "Estratégia & IA", url: "/estrategia", icon: Lightbulb },
   { title: "Zaytan Mind", url: "/zaytan-mind", icon: Brain },
 ];
 
@@ -114,7 +106,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v4.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v5.0</p>
           </div>
         )}
       </SidebarFooter>

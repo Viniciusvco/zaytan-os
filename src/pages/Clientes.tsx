@@ -1,31 +1,34 @@
 import { useState } from "react";
-import { Search, Plus, Building2, Zap, Globe, MoreHorizontal, CheckCircle2, Clock, AlertCircle, Pencil, Trash2, X, ExternalLink, MessageSquare } from "lucide-react";
+import { Search, Plus, Building2, Zap, Globe, CheckCircle2, Clock, AlertCircle, XCircle, Pencil, Trash2, X, ExternalLink, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilter";
 
 interface HistoryEntry { date: string; note: string }
 interface LinkEntry { label: string; url: string }
 interface Task { text: string; done: boolean }
 
 interface Client {
-  id: string; name: string; pillar: "trafego" | "automacao"; status: "ativo" | "onboarding" | "pausado";
-  mrr: number; tasks: Task[]; nextDelivery: string; links: LinkEntry[]; history: HistoryEntry[];
+  id: string; name: string; pillar: "trafego" | "automacao"; status: "ativo" | "onboarding" | "pausado" | "cancelado";
+  mrr: number; tasks: Task[]; links: LinkEntry[]; history: HistoryEntry[];
 }
 
 const initialClients: Client[] = [
-  { id: "1", name: "Escritório Silva Advocacia", pillar: "automacao", status: "ativo", mrr: 4500, tasks: [{ text: "Configurar N8N", done: true }, { text: "Treinar modelo GPT", done: true }, { text: "Testar fluxo", done: false }], nextDelivery: "02 Abr", links: [{ label: "Drive", url: "#" }], history: [{ date: "28 Mar", note: "Reunião de alinhamento sobre chatbot" }] },
-  { id: "2", name: "Clínica Estética Bella", pillar: "trafego", status: "ativo", mrr: 3200, tasks: [{ text: "Design LP", done: true }, { text: "Copy", done: true }, { text: "Configurar Meta Ads", done: false }], nextDelivery: "05 Abr", links: [], history: [] },
-  { id: "3", name: "Imobiliária Nova Era", pillar: "automacao", status: "onboarding", mrr: 6800, tasks: [{ text: "Coletar acessos", done: false }, { text: "Mapear processos", done: false }], nextDelivery: "10 Abr", links: [], history: [] },
-  { id: "4", name: "E-commerce TechShop", pillar: "trafego", status: "ativo", mrr: 5500, tasks: [{ text: "Google Ads otimização", done: true }], nextDelivery: "—", links: [{ label: "Dashboard BI", url: "#" }], history: [] },
-  { id: "5", name: "Restaurante Sabor & Arte", pillar: "trafego", status: "pausado", mrr: 2800, tasks: [], nextDelivery: "—", links: [], history: [] },
-  { id: "6", name: "Construtora Horizonte", pillar: "automacao", status: "onboarding", mrr: 8000, tasks: [{ text: "Setup CRM", done: false }, { text: "Integrar API", done: false }], nextDelivery: "15 Abr", links: [], history: [] },
+  { id: "1", name: "Escritório Silva Advocacia", pillar: "automacao", status: "ativo", mrr: 4500, tasks: [{ text: "Configurar N8N", done: true }, { text: "Treinar modelo GPT", done: true }, { text: "Testar fluxo", done: false }], links: [{ label: "Drive", url: "#" }], history: [{ date: "28 Mar", note: "Reunião de alinhamento sobre chatbot" }] },
+  { id: "2", name: "Clínica Estética Bella", pillar: "trafego", status: "ativo", mrr: 3200, tasks: [{ text: "Design LP", done: true }, { text: "Configurar Meta Ads", done: false }], links: [], history: [] },
+  { id: "3", name: "Imobiliária Nova Era", pillar: "automacao", status: "onboarding", mrr: 6800, tasks: [{ text: "Coletar acessos", done: false }], links: [], history: [] },
+  { id: "4", name: "E-commerce TechShop", pillar: "trafego", status: "ativo", mrr: 5500, tasks: [{ text: "Google Ads otimização", done: true }], links: [{ label: "Dashboard BI", url: "#" }], history: [] },
+  { id: "5", name: "Restaurante Sabor & Arte", pillar: "trafego", status: "pausado", mrr: 2800, tasks: [], links: [], history: [] },
+  { id: "6", name: "Construtora Horizonte", pillar: "automacao", status: "onboarding", mrr: 8000, tasks: [{ text: "Setup CRM", done: false }], links: [], history: [] },
+  { id: "7", name: "Contabilidade Express", pillar: "automacao", status: "cancelado", mrr: 0, tasks: [], links: [], history: [{ date: "15 Mar", note: "Cliente cancelou por corte de custos" }] },
 ];
 
 const statusConfig = {
   ativo: { label: "Ativo", icon: CheckCircle2, className: "bg-success/10 text-success" },
-  onboarding: { label: "Onboarding", icon: Clock, className: "bg-info/10 text-info" },
+  onboarding: { label: "Em Onboarding", icon: Clock, className: "bg-info/10 text-info" },
   pausado: { label: "Pausado", icon: AlertCircle, className: "bg-warning/10 text-warning" },
+  cancelado: { label: "Cancelado", icon: XCircle, className: "bg-destructive/10 text-destructive" },
 };
 const pillarConfig = {
   trafego: { label: "Tráfego/LPs", icon: Globe },
@@ -35,7 +38,8 @@ const pillarConfig = {
 const Clientes = () => {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [search, setSearch] = useState("");
-  const [filterPillar, setFilterPillar] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [dateRange, setDateRange] = useState(useDefaultDateRange());
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [detailClient, setDetailClient] = useState<Client | null>(null);
@@ -47,13 +51,13 @@ const Clientes = () => {
 
   const filtered = clients.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(search.toLowerCase());
-    const matchPillar = filterPillar === "all" || c.pillar === filterPillar;
-    return matchSearch && matchPillar;
+    const matchStatus = filterStatus === "all" || c.status === filterStatus;
+    return matchSearch && matchStatus;
   });
 
   const handleAdd = () => {
     if (!newClient.name.trim()) return;
-    setClients(prev => [...prev, { ...newClient, id: Date.now().toString(), status: "onboarding", tasks: [], nextDelivery: "—", links: [], history: [] }]);
+    setClients(prev => [...prev, { ...newClient, id: Date.now().toString(), status: "onboarding", tasks: [], links: [], history: [] }]);
     setNewClient({ name: "", pillar: "trafego", mrr: 0 });
     setShowAdd(false);
   };
@@ -77,8 +81,7 @@ const Clientes = () => {
 
   const addHistoryNote = () => {
     if (!detailClient || !newNote.trim()) return;
-    const updated = { ...detailClient, history: [...detailClient.history, { date: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }), note: newNote }] };
-    updateDetail(updated);
+    updateDetail({ ...detailClient, history: [...detailClient.history, { date: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }), note: newNote }] });
     setNewNote("");
   };
 
@@ -106,24 +109,35 @@ const Clientes = () => {
     updateDetail({ ...detailClient, tasks: detailClient.tasks.filter((_, i) => i !== idx) });
   };
 
+  const statusTabs = [
+    { value: "all", label: "Todos" },
+    { value: "ativo", label: "Ativos" },
+    { value: "onboarding", label: "Onboarding" },
+    { value: "pausado", label: "Pausados" },
+    { value: "cancelado", label: "Cancelados" },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-sm text-muted-foreground mt-1">{clients.length} clientes</p>
+          <p className="text-sm text-muted-foreground mt-1">{clients.length} clientes cadastrados</p>
         </div>
-        <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Cliente</Button>
+        <div className="flex items-center gap-2">
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Cliente</Button>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input className="w-full h-9 pl-9 pr-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Buscar clientes..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
         <div className="flex gap-1 bg-muted rounded-lg p-0.5">
-          {[{ value: "all", label: "Todos" }, { value: "trafego", label: "Tráfego" }, { value: "automacao", label: "Automação" }].map((opt) => (
-            <button key={opt.value} onClick={() => setFilterPillar(opt.value)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterPillar === opt.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{opt.label}</button>
+          {statusTabs.map((tab) => (
+            <button key={tab.value} onClick={() => setFilterStatus(tab.value)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterStatus === tab.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{tab.label}</button>
           ))}
         </div>
       </div>
@@ -154,7 +168,7 @@ const Clientes = () => {
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div><span className="text-sm font-medium">{client.name}</span></div></td>
                   <td className="px-4 py-3"><span className="text-xs flex items-center gap-1.5 text-muted-foreground"><PillarIcon className="h-3 w-3" /> {pillar.label}</span></td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${status.className}`}><StatusIcon className="h-3 w-3" /> {status.label}</span></td>
-                  <td className="px-4 py-3"><span className="text-sm font-semibold">R$ {client.mrr.toLocaleString()}</span></td>
+                  <td className="px-4 py-3"><span className="text-sm font-semibold">{client.mrr > 0 ? `R$ ${client.mrr.toLocaleString()}` : "—"}</span></td>
                   <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} /></div><span className="text-xs text-muted-foreground">{done}/{total}</span></div></td>
                   <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
@@ -193,7 +207,7 @@ const Clientes = () => {
                 <option value="trafego">Tráfego/LPs</option><option value="automacao">Automação/IA</option>
               </select>
               <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editClient.status} onChange={(e) => setEditClient({ ...editClient, status: e.target.value as any })}>
-                <option value="ativo">Ativo</option><option value="onboarding">Onboarding</option><option value="pausado">Pausado</option>
+                <option value="ativo">Ativo</option><option value="onboarding">Em Onboarding</option><option value="pausado">Pausado</option><option value="cancelado">Cancelado</option>
               </select>
               <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editClient.mrr} onChange={(e) => setEditClient({ ...editClient, mrr: Number(e.target.value) })} />
             </div>
@@ -216,7 +230,6 @@ const Clientes = () => {
             <>
               <DialogHeader><DialogTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" />{detailClient.name}</DialogTitle></DialogHeader>
               <div className="space-y-5">
-                {/* Tasks */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2">Checklist de Tarefas</h4>
                   <div className="space-y-1.5">
@@ -233,8 +246,6 @@ const Clientes = () => {
                     <Button size="sm" variant="outline" onClick={addTask}>Adicionar</Button>
                   </div>
                 </div>
-
-                {/* Links */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2">Links Úteis</h4>
                   <div className="space-y-1">
@@ -248,8 +259,6 @@ const Clientes = () => {
                     <Button size="sm" variant="outline" onClick={addLink}>+</Button>
                   </div>
                 </div>
-
-                {/* History */}
                 <div>
                   <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><MessageSquare className="h-4 w-4" /> Histórico & Notas</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
