@@ -1,4 +1,4 @@
-import { DollarSign, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight, Receipt, Repeat, Zap } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const monthlyData = [
@@ -19,10 +19,10 @@ const nicheData = [
 ];
 
 const COLORS = [
-  "hsl(152, 60%, 45%)",
+  "hsl(17, 100%, 58%)",
   "hsl(200, 70%, 55%)",
   "hsl(262, 60%, 60%)",
-  "hsl(35, 90%, 60%)",
+  "hsl(152, 60%, 42%)",
   "hsl(340, 65%, 55%)",
 ];
 
@@ -35,28 +35,56 @@ const costs = [
   { name: "APIs Externas", value: 1200, type: "variavel" },
 ];
 
+const clientMargins = [
+  { client: "Escritório Silva", mrr: 4500, oneOff: 0, costs: 1800, margin: 60 },
+  { client: "Clínica Bella", mrr: 3200, oneOff: 1500, costs: 1400, margin: 66 },
+  { client: "Imobiliária Nova Era", mrr: 6800, oneOff: 3000, costs: 3200, margin: 67 },
+  { client: "TechShop", mrr: 5500, oneOff: 0, costs: 2100, margin: 62 },
+  { client: "Construtora Horizonte", mrr: 8000, oneOff: 5000, costs: 4500, margin: 65 },
+];
+
 const Financeiro = () => {
-  const totalReceita = 42800;
+  const mrrTotal = 42800;
+  const oneOffTotal = 9500;
+  const tcv = mrrTotal * 12 + oneOffTotal;
   const totalCustos = costs.reduce((s, c) => s + c.value, 0);
-  const lucro = totalReceita - totalCustos;
-  const margem = Math.round((lucro / totalReceita) * 100);
+  const lucro = mrrTotal + oneOffTotal - totalCustos;
+  const margem = Math.round((lucro / (mrrTotal + oneOffTotal)) * 100);
 
   return (
     <div className="space-y-6 max-w-7xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Financeiro</h1>
-        <p className="text-sm text-muted-foreground mt-1">Controle de receitas, custos e lucratividade</p>
+        <h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1>
+        <p className="text-sm text-muted-foreground mt-1">Receitas, custos operacionais e margem real por cliente</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
-              <ArrowUpRight className="h-4 w-4 text-success" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Repeat className="h-4 w-4 text-primary" />
             </div>
           </div>
-          <p className="text-2xl font-bold">R$ {totalReceita.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground mt-1">Receita Mensal</p>
+          <p className="text-2xl font-bold">R$ {mrrTotal.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground mt-1">MRR (Recorrência)</p>
+        </div>
+        <div className="metric-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center">
+              <Zap className="h-4 w-4 text-info" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold">R$ {oneOffTotal.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground mt-1">One-offs (LPs, Setups)</p>
+        </div>
+        <div className="metric-card">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-8 w-8 rounded-lg bg-warning/10 flex items-center justify-center">
+              <Receipt className="h-4 w-4 text-warning" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold">R$ {tcv.toLocaleString()}</p>
+          <p className="text-xs text-muted-foreground mt-1">TCV (Anual Projetado)</p>
         </div>
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-2">
@@ -65,50 +93,39 @@ const Financeiro = () => {
             </div>
           </div>
           <p className="text-2xl font-bold">R$ {totalCustos.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground mt-1">Custos Totais</p>
+          <p className="text-xs text-muted-foreground mt-1">Custos Operacionais</p>
         </div>
         <div className="metric-card">
           <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <DollarSign className="h-4 w-4 text-primary" />
-            </div>
-          </div>
-          <p className="text-2xl font-bold">R$ {lucro.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground mt-1">Lucro Líquido</p>
-        </div>
-        <div className="metric-card">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center">
-              <TrendingUp className="h-4 w-4 text-info" />
+            <div className="h-8 w-8 rounded-lg bg-success/10 flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-success" />
             </div>
           </div>
           <p className="text-2xl font-bold">{margem}%</p>
-          <p className="text-xs text-muted-foreground mt-1">Margem de Lucro</p>
+          <p className="text-xs text-muted-foreground mt-1">Margem Real</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Revenue vs Costs chart */}
         <div className="metric-card lg:col-span-2">
           <h3 className="text-sm font-semibold mb-4">Receita vs Custos (6 meses)</h3>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(225, 15%, 18%)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 55%)" />
-                <YAxis tick={{ fontSize: 12 }} stroke="hsl(220, 10%, 55%)" tickFormatter={(v) => `${v / 1000}k`} />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} className="text-muted-foreground" />
+                <YAxis tick={{ fontSize: 12 }} className="text-muted-foreground" tickFormatter={(v) => `${v / 1000}k`} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "hsl(225, 22%, 11%)", border: "1px solid hsl(225, 15%, 18%)", borderRadius: "8px", fontSize: "12px" }}
+                  contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }}
                   formatter={(value: number) => [`R$ ${value.toLocaleString()}`, ""]}
                 />
-                <Bar dataKey="receita" fill="hsl(152, 60%, 45%)" radius={[4, 4, 0, 0]} name="Receita" />
+                <Bar dataKey="receita" fill="hsl(17, 100%, 58%)" radius={[4, 4, 0, 0]} name="Receita" />
                 <Bar dataKey="custos" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} name="Custos" opacity={0.7} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Profitability by niche */}
         <div className="metric-card">
           <h3 className="text-sm font-semibold mb-4">Lucratividade por Nicho</h3>
           <div className="h-[160px]">
@@ -119,9 +136,7 @@ const Financeiro = () => {
                     <Cell key={i} fill={COLORS[i]} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: "hsl(225, 22%, 11%)", border: "1px solid hsl(225, 15%, 18%)", borderRadius: "8px", fontSize: "12px" }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -139,9 +154,44 @@ const Financeiro = () => {
         </div>
       </div>
 
-      {/* Costs table */}
+      {/* Margem Real por Cliente */}
       <div className="metric-card">
-        <h3 className="text-sm font-semibold mb-4">Detalhamento de Custos</h3>
+        <h3 className="text-sm font-semibold mb-4">Margem Real por Cliente</h3>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2">MRR</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2">One-off</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2">Custos (Equipe+Tools)</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2">Lucro</th>
+              <th className="text-right text-xs font-medium text-muted-foreground pb-2">Margem</th>
+            </tr>
+          </thead>
+          <tbody>
+            {clientMargins.map((c) => {
+              const totalRev = c.mrr + c.oneOff;
+              const profit = totalRev - c.costs;
+              return (
+                <tr key={c.client} className="border-b border-border last:border-0">
+                  <td className="py-2.5 text-sm font-medium">{c.client}</td>
+                  <td className="py-2.5 text-right text-sm">R$ {c.mrr.toLocaleString()}</td>
+                  <td className="py-2.5 text-right text-sm text-muted-foreground">{c.oneOff > 0 ? `R$ ${c.oneOff.toLocaleString()}` : "—"}</td>
+                  <td className="py-2.5 text-right text-sm text-destructive">R$ {c.costs.toLocaleString()}</td>
+                  <td className="py-2.5 text-right text-sm font-semibold text-success">R$ {profit.toLocaleString()}</td>
+                  <td className="py-2.5 text-right">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${c.margin >= 65 ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>{c.margin}%</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Detalhamento de Custos */}
+      <div className="metric-card">
+        <h3 className="text-sm font-semibold mb-4">Detalhamento de Custos Operacionais</h3>
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">

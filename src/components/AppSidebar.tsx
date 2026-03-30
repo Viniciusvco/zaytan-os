@@ -5,8 +5,10 @@ import {
   DollarSign,
   Lightbulb,
   FolderOpen,
-  Settings,
   Zap,
+  Brain,
+  Target,
+  ClipboardList,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -32,8 +34,14 @@ const mainItems = [
 ];
 
 const operationItems = [
+  { title: "Comercial", url: "/comercial", icon: Target },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
+  { title: "Operacional", url: "/operacional", icon: ClipboardList },
+];
+
+const strategyItems = [
   { title: "Estratégia & IA", url: "/estrategia", icon: Lightbulb },
+  { title: "Zaytan Mind", url: "/zaytan-mind", icon: Brain },
 ];
 
 export function AppSidebar() {
@@ -88,12 +96,19 @@ export function AppSidebar() {
             <SidebarMenu>{renderItems(operationItems)}</SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Inteligência</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>{renderItems(strategyItems)}</SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v1.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v2.0</p>
           </div>
         )}
       </SidebarFooter>
