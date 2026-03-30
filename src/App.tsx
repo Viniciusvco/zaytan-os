@@ -13,6 +13,7 @@ import Estrategia from "./pages/Estrategia";
 import Comercial from "./pages/Comercial";
 import ZaytanMind from "./pages/ZaytanMind";
 import Operacional from "./pages/Operacional";
+import CustomerSuccess from "./pages/CustomerSuccess";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/comercial" element={<Comercial />} />
             <Route path="/zaytan-mind" element={<ZaytanMind />} />
             <Route path="/operacional" element={<Operacional />} />
+            <Route path="/cs" element={<CustomerSuccess />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AppLayout>

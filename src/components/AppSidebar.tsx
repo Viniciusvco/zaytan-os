@@ -5,13 +5,14 @@ import {
   DollarSign,
   Lightbulb,
   FolderOpen,
-  Zap,
   Brain,
   Target,
   ClipboardList,
+  HeadphonesIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import zaytanLogo from "@/assets/zaytan-logo.png";
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +38,7 @@ const operationItems = [
   { title: "Comercial", url: "/comercial", icon: Target },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Operacional", url: "/operacional", icon: ClipboardList },
+  { title: "Customer Success", url: "/cs", icon: HeadphonesIcon },
 ];
 
 const strategyItems = [
@@ -47,7 +49,6 @@ const strategyItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
 
   const renderItems = (items: typeof mainItems) =>
     items.map((item) => (
@@ -70,12 +71,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <Zap className="h-4 w-4 text-primary-foreground" />
+          <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            <img src={zaytanLogo} alt="Zaytan" className="h-9 w-9 object-cover" />
           </div>
           {!collapsed && (
             <div>
-              <h2 className="text-sm font-bold text-foreground tracking-tight">Zaytan</h2>
+              <h2 className="text-sm font-bold text-foreground tracking-tight">Zaytan OS</h2>
               <p className="text-[10px] text-muted-foreground">Strategic Hub</p>
             </div>
           )}
@@ -108,7 +109,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v2.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v3.0</p>
           </div>
         )}
       </SidebarFooter>
