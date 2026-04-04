@@ -1,17 +1,17 @@
-import { ArrowRight, BarChart3, Brain, FileText, Globe, Kanban, Shield, Target, Users, Zap } from "lucide-react";
+import { ArrowRight, BarChart3, Kanban, Shield, Target, Users, Zap, FileText, HeadphonesIcon, Rocket } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import zaytanLogo from "@/assets/zaytan-logo.png";
 
 const features = [
-  { icon: BarChart3, title: "Dashboard Executivo", description: "Visão completa de MRR, churn, margem e projeções financeiras em tempo real." },
-  { icon: Kanban, title: "Pipeline de Vendas", description: "Funil comercial visual com deals, probabilidades e valor ponderado." },
-  { icon: Users, title: "Gestão de Clientes", description: "CRM completo com checklists, histórico de reuniões e central de ativos." },
-  { icon: FileText, title: "Contratos & Lifecycle", description: "Cadastro com alertas de vencimento, status e cálculo automático de TCV." },
-  { icon: Target, title: "Comercial & Metas", description: "Meta vs Realizado por vendedor com cálculo automático de comissões." },
-  { icon: Brain, title: "Zaytan Mind (IA)", description: "Agente estratégico que analisa dados e sugere ações para os sócios." },
-  { icon: Globe, title: "Captação de Leads", description: "Formulários whitelabel e pipeline de conversão com tracking completo." },
-  { icon: Zap, title: "Operacional Kanban", description: "Esteira de produção com onboarding, kanban e customer success." },
+  { icon: BarChart3, title: "Dashboard Multi-Visão", description: "Admin vê tudo, gestor vê métricas avançadas, cliente acompanha resultados simples." },
+  { icon: Kanban, title: "Kanban de Demandas", description: "Backlog → Andamento → Revisão → Concluído. Visão dupla: cliente simplificada, equipe detalhada." },
+  { icon: Target, title: "CRM Integrado", description: "Pipeline visual de vendas com histórico, notas e relação com campanhas." },
+  { icon: Zap, title: "Motor de Regras", description: "Alertas automáticos de orçamento, leads, CTR, CPM, frequência e CPL." },
+  { icon: Users, title: "Gestão de Equipe (PDI)", description: "Métricas por colaborador: tarefas, tempo médio, atrasos e volume por tipo." },
+  { icon: FileText, title: "Contratos & Financeiro", description: "Lifecycle de contratos com alertas de vencimento e margem real por cliente." },
+  { icon: Rocket, title: "Onboarding Guiado", description: "Fluxo de configuração para novos clientes com briefing e upload de materiais." },
+  { icon: HeadphonesIcon, title: "White-Label Ready", description: "Logo, cor e nome personalizáveis por cliente. Preparado para virar SaaS." },
 ];
 
 const Landing = () => {
@@ -19,7 +19,6 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -28,43 +27,33 @@ const Landing = () => {
             </div>
             <span className="font-bold text-lg tracking-tight">Zaytan OS</span>
           </div>
-          <Button onClick={() => navigate("/")} size="sm">
-            Entrar <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+          <Button onClick={() => navigate("/")} size="sm">Entrar <ArrowRight className="h-4 w-4 ml-1" /></Button>
         </div>
       </header>
 
-      {/* Hero */}
       <section className="max-w-6xl mx-auto px-6 py-24 text-center">
         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-medium px-3 py-1 rounded-full mb-6">
-          <Zap className="h-3.5 w-3.5" /> Plataforma Enterprise para Agências
+          <Zap className="h-3.5 w-3.5" /> Plataforma SaaS para Agências
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight max-w-3xl mx-auto leading-[1.1]">
-          O hub de decisão estratégica da sua{" "}
-          <span className="text-primary">agência</span>
+          O sistema operacional da sua <span className="text-primary">agência</span>
         </h1>
         <p className="text-lg text-muted-foreground mt-6 max-w-xl mx-auto">
-          Una operação, finanças e inteligência artificial em uma única plataforma.
-          Controle total para sócios de agências de tráfego e automação.
+          Substitua Trello, Notion, CRM e Meta Ads Manager por uma única plataforma. Escale para 200+ clientes.
         </p>
         <div className="flex items-center justify-center gap-3 mt-8">
-          <Button size="lg" onClick={() => navigate("/")}>
-            Acessar Dashboard <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
-          <Button size="lg" variant="outline" onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}>
-            Ver funcionalidades
-          </Button>
+          <Button size="lg" onClick={() => navigate("/")}>Acessar Plataforma <ArrowRight className="h-4 w-4 ml-1" /></Button>
+          <Button size="lg" variant="outline" onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}>Ver funcionalidades</Button>
         </div>
       </section>
 
-      {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-14">
-          <h2 className="text-3xl font-bold tracking-tight">Tudo que você precisa em um só lugar</h2>
-          <p className="text-muted-foreground mt-2">Módulos integrados para gestão completa da sua agência</p>
+          <h2 className="text-3xl font-bold tracking-tight">Tudo em um só lugar</h2>
+          <p className="text-muted-foreground mt-2">3 níveis de acesso: Admin · Colaborador · Cliente</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map((f) => (
+          {features.map(f => (
             <div key={f.title} className="metric-card group hover:border-primary/40">
               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
                 <f.icon className="h-5 w-5 text-primary" />
@@ -76,28 +65,24 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Privacy */}
       <section className="max-w-6xl mx-auto px-6 py-20">
         <div className="metric-card flex flex-col md:flex-row items-center gap-6 p-8">
           <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
             <Shield className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-bold mb-2">Como usamos seus dados</h3>
+            <h3 className="text-lg font-bold mb-2">Privacidade e LGPD</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              O Zaytan OS respeita integralmente a LGPD. Seus dados financeiros, de clientes e operacionais são armazenados com
-              criptografia de ponta a ponta. Integrações com Google Calendar e outras plataformas utilizam OAuth 2.0 com escopo
-              mínimo de permissões. Nenhum dado é compartilhado com terceiros. Você mantém controle total sobre suas informações.
+              O Zaytan OS respeita a LGPD. Dados criptografados, integrações via OAuth 2.0 com escopo mínimo. Nenhum dado é compartilhado com terceiros. Preparado para white-label com isolamento total por cliente.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">© 2026 Zaytan OS · Todos os direitos reservados</p>
-          <p className="text-xs text-muted-foreground">v4.0 — Enterprise Edition</p>
+          <p className="text-xs text-muted-foreground">v6.0 — Multi-Tenant SaaS</p>
         </div>
       </footer>
     </div>
