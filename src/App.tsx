@@ -17,6 +17,8 @@ import CRM from "./pages/CRM";
 import Onboarding from "./pages/Onboarding";
 import Equipe from "./pages/Equipe";
 import Usuarios from "./pages/Usuarios";
+import Academy from "./pages/Academy";
+import Feedbacks from "./pages/Feedbacks";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
@@ -46,6 +48,8 @@ const App = () => (
                   <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/equipe" element={<Equipe />} />
                   <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/academy" element={<Academy />} />
+                  <Route path="/feedbacks" element={<Feedbacks />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </AppLayout>

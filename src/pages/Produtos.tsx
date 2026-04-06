@@ -10,18 +10,20 @@ interface Product {
   name: string;
   category: "trafego" | "automacao" | "lp" | "consultoria";
   basePrice: number;
+  minPrice: number;
+  maxPrice: number;
   type: "recorrente" | "pontual";
   description: string;
 }
 
 const initialProducts: Product[] = [
-  { id: "1", name: "Gestão Meta Ads", category: "trafego", basePrice: 3500, type: "recorrente", description: "Gestão completa de campanhas Meta Ads com relatórios semanais" },
-  { id: "2", name: "Gestão Google Ads", category: "trafego", basePrice: 4000, type: "recorrente", description: "Campanhas de pesquisa, display e YouTube" },
-  { id: "3", name: "Landing Page", category: "lp", basePrice: 1500, type: "pontual", description: "Página de alta conversão com copywriting e design" },
-  { id: "4", name: "Setup CRM + Automação", category: "automacao", basePrice: 5000, type: "pontual", description: "Implementação completa de CRM com fluxos automatizados" },
-  { id: "5", name: "Chatbot IA (N8N + GPT)", category: "automacao", basePrice: 6000, type: "recorrente", description: "Chatbot inteligente com integração WhatsApp" },
-  { id: "6", name: "Pacote Completo (Tráfego + LP)", category: "trafego", basePrice: 5500, type: "recorrente", description: "Gestão de tráfego com landing pages inclusas" },
-  { id: "7", name: "Consultoria Estratégica", category: "consultoria", basePrice: 2000, type: "pontual", description: "Sessão de consultoria com análise de funil e recomendações" },
+  { id: "1", name: "Gestão Meta Ads", category: "trafego", basePrice: 3500, minPrice: 2500, maxPrice: 4500, type: "recorrente", description: "Gestão completa de campanhas Meta Ads com relatórios semanais" },
+  { id: "2", name: "Gestão Google Ads", category: "trafego", basePrice: 4000, minPrice: 3000, maxPrice: 5000, type: "recorrente", description: "Campanhas de pesquisa, display e YouTube" },
+  { id: "3", name: "Landing Page", category: "lp", basePrice: 1500, minPrice: 1000, maxPrice: 2500, type: "pontual", description: "Página de alta conversão com copywriting e design" },
+  { id: "4", name: "Setup CRM + Automação", category: "automacao", basePrice: 5000, minPrice: 4000, maxPrice: 7000, type: "pontual", description: "Implementação completa de CRM com fluxos automatizados" },
+  { id: "5", name: "Chatbot IA (N8N + GPT)", category: "automacao", basePrice: 6000, minPrice: 5000, maxPrice: 8000, type: "recorrente", description: "Chatbot inteligente com integração WhatsApp" },
+  { id: "6", name: "Pacote Completo (Tráfego + LP)", category: "trafego", basePrice: 5500, minPrice: 4500, maxPrice: 7000, type: "recorrente", description: "Gestão de tráfego com landing pages inclusas" },
+  { id: "7", name: "Consultoria Estratégica", category: "consultoria", basePrice: 2000, minPrice: 1500, maxPrice: 3500, type: "pontual", description: "Sessão de consultoria com análise de funil e recomendações" },
 ];
 
 const categoryConfig: Record<string, { label: string; className: string }> = {
@@ -38,13 +40,32 @@ const Produtos = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [newProduct, setNewProduct] = useState<Omit<Product, "id">>({ name: "", category: "trafego", basePrice: 0, type: "recorrente", description: "" });
+  const [newProduct, setNewProduct] = useState<Omit<Product, "id">>({ name: "", category: "trafego", basePrice: 0, minPrice: 0, maxPrice: 0, type: "recorrente", description: "" });
 
   const filtered = products.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = catFilter === "all" || p.category === catFilter;
     return matchSearch && matchCat;
   });
+
+  const ProductForm = ({ product, onChange }: { product: Omit<Product, "id">; onChange: (p: any) => void }) => (
+    <div className="space-y-3">
+      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={product.name} onChange={e => onChange({ ...product, name: e.target.value })} />
+      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={product.description} onChange={e => onChange({ ...product, description: e.target.value })} />
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.category} onChange={e => onChange({ ...product, category: e.target.value })}>
+        <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
+      </select>
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.type} onChange={e => onChange({ ...product, type: e.target.value })}>
+        <option value="recorrente">Recorrente</option><option value="pontual">Pontual</option>
+      </select>
+      <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Base (R$)" value={product.basePrice || ""} onChange={e => onChange({ ...product, basePrice: Number(e.target.value) })} />
+      <div className="grid grid-cols-2 gap-3">
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Mínimo (R$)" value={product.minPrice || ""} onChange={e => onChange({ ...product, minPrice: Number(e.target.value) })} />
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Máximo (R$)" value={product.maxPrice || ""} onChange={e => onChange({ ...product, maxPrice: Number(e.target.value) })} />
+      </div>
+      <p className="text-[10px] text-muted-foreground">Range de negociação: vendedor pode escolher valor entre mín e máx</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -56,20 +77,12 @@ const Produtos = () => {
         <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Produto</Button>
       </div>
 
-      <ContextFilters
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Buscar produtos..."
-        filterGroups={[{
-          key: "cat", label: "Categoria",
-          options: [
-            { label: "Todos", value: "all" },
-            { label: "Tráfego", value: "trafego" },
-            { label: "Automação", value: "automacao" },
-            { label: "Landing Page", value: "lp" },
-            { label: "Consultoria", value: "consultoria" },
-          ],
-        }]}
+      <ContextFilters search={search} onSearchChange={setSearch} searchPlaceholder="Buscar produtos..."
+        filterGroups={[{ key: "cat", label: "Categoria", options: [
+          { label: "Todos", value: "all" }, { label: "Tráfego", value: "trafego" },
+          { label: "Automação", value: "automacao" }, { label: "Landing Page", value: "lp" },
+          { label: "Consultoria", value: "consultoria" },
+        ]}]}
         activeFilters={{ cat: catFilter }}
         onFilterChange={(_, v) => setCatFilter(v)}
       />
@@ -90,7 +103,7 @@ const Produtos = () => {
               </div>
               <h3 className="text-sm font-semibold mb-1">{p.name}</h3>
               <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{p.description}</p>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex gap-2">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${cat.className}`}>{cat.label}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.type === "recorrente" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
@@ -98,6 +111,9 @@ const Produtos = () => {
                   </span>
                 </div>
                 <span className="text-sm font-bold">R$ {p.basePrice.toLocaleString()}</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                Range: R$ {p.minPrice.toLocaleString()} — R$ {p.maxPrice.toLocaleString()}
               </div>
             </div>
           );
@@ -107,35 +123,15 @@ const Produtos = () => {
       {/* Add */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent><DialogHeader><DialogTitle>Novo Produto</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} />
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={newProduct.description} onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))} />
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value as any }))}>
-              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
-            </select>
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newProduct.type} onChange={e => setNewProduct(p => ({ ...p, type: e.target.value as any }))}>
-              <option value="recorrente">Recorrente</option><option value="pontual">Pontual</option>
-            </select>
-            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Base (R$)" value={newProduct.basePrice || ""} onChange={e => setNewProduct(p => ({ ...p, basePrice: Number(e.target.value) }))} />
-          </div>
-          <DialogFooter><Button onClick={() => { if (newProduct.name) { setProducts(prev => [...prev, { ...newProduct, id: Date.now().toString() }]); setNewProduct({ name: "", category: "trafego", basePrice: 0, type: "recorrente", description: "" }); setShowAdd(false); } }}>Adicionar</Button></DialogFooter>
+          <ProductForm product={newProduct} onChange={setNewProduct} />
+          <DialogFooter><Button onClick={() => { if (newProduct.name) { setProducts(prev => [...prev, { ...newProduct, id: Date.now().toString() }]); setNewProduct({ name: "", category: "trafego", basePrice: 0, minPrice: 0, maxPrice: 0, type: "recorrente", description: "" }); setShowAdd(false); } }}>Adicionar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit */}
       <Dialog open={!!editProduct} onOpenChange={() => setEditProduct(null)}>
         <DialogContent><DialogHeader><DialogTitle>Editar Produto</DialogTitle></DialogHeader>
-          {editProduct && <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editProduct.name} onChange={e => setEditProduct({ ...editProduct, name: e.target.value })} />
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editProduct.description} onChange={e => setEditProduct({ ...editProduct, description: e.target.value })} />
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editProduct.category} onChange={e => setEditProduct({ ...editProduct, category: e.target.value as any })}>
-              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
-            </select>
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editProduct.type} onChange={e => setEditProduct({ ...editProduct, type: e.target.value as any })}>
-              <option value="recorrente">Recorrente</option><option value="pontual">Pontual</option>
-            </select>
-            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editProduct.basePrice} onChange={e => setEditProduct({ ...editProduct, basePrice: Number(e.target.value) })} />
-          </div>}
+          {editProduct && <ProductForm product={editProduct} onChange={setEditProduct} />}
           <DialogFooter><Button onClick={() => { if (editProduct) { setProducts(p => p.map(pr => pr.id === editProduct.id ? editProduct : pr)); setEditProduct(null); } }}>Salvar</Button></DialogFooter>
         </DialogContent>
       </Dialog>

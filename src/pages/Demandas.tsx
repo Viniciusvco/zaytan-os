@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useRole } from "@/contexts/RoleContext";
-import { Plus, AlertTriangle, CheckCircle2, Clock, Circle, Paperclip, MessageSquare } from "lucide-react";
+import { Plus, AlertTriangle, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -9,18 +9,10 @@ type DemandType = "suporte" | "trafego" | "design";
 type DemandStatus = "backlog" | "andamento" | "revisao" | "concluido";
 
 interface Demand {
-  id: string;
-  title: string;
-  description: string;
-  client: string;
-  type: DemandType;
-  priority: Priority;
-  status: DemandStatus;
-  assignee: string;
-  createdAt: string;
-  dueDate: string;
-  attachment?: string;
-  internalNotes: string;
+  id: string; title: string; description: string; client: string;
+  type: DemandType; priority: Priority; status: DemandStatus;
+  assignee: string; createdAt: string; dueDate: string;
+  attachment?: string; internalNotes: string;
 }
 
 const initialDemands: Demand[] = [
@@ -29,6 +21,7 @@ const initialDemands: Demand[] = [
   { id: "3", title: "Nova landing page", description: "LP para campanha de imóveis de luxo", client: "Imobiliária Nova Era", type: "design", priority: "saudavel", status: "revisao", assignee: "Pedro Costa", createdAt: "2026-03-25", dueDate: "2026-04-08", internalNotes: "" },
   { id: "4", title: "Otimizar Google Ads", description: "CPC acima da média, precisa otimizar", client: "TechShop", type: "trafego", priority: "atencao", status: "andamento", assignee: "João Silva", createdAt: "2026-03-27", dueDate: "2026-04-04", internalNotes: "Testar novos termos negativos" },
   { id: "5", title: "Relatório mensal", description: "Enviar relatório de performance de março", client: "Construtora Horizonte", type: "suporte", priority: "saudavel", status: "concluido", assignee: "Maria Santos", createdAt: "2026-03-20", dueDate: "2026-03-31", internalNotes: "Enviado por email" },
+  { id: "6", title: "Feedback negativo - Reclamação", description: "Cliente deu nota 2 no feedback semanal", client: "Escritório Silva", type: "suporte", priority: "critico", status: "backlog", assignee: "Maria Santos", createdAt: "2026-04-01", dueDate: "2026-04-03", internalNotes: "Feedback automático — CS deve intervir" },
 ];
 
 const statusColumns: { key: DemandStatus; label: string; color: string }[] = [
@@ -44,15 +37,18 @@ const priorityConfig = {
   saudavel: { label: "Saudável", className: "bg-success/10 text-success", icon: CheckCircle2 },
 };
 
-const typeConfig: Record<DemandType, { label: string; className: string }> = {
-  suporte: { label: "Suporte", className: "bg-destructive/10 text-destructive" },
-  trafego: { label: "Tráfego Pago", className: "bg-primary/10 text-primary" },
-  design: { label: "Design", className: "bg-info/10 text-info" },
+// Specialty border colors
+const typeBorderColors: Record<DemandType, string> = {
+  trafego: "border-l-4 border-l-info",
+  design: "border-l-4 border-l-chart-3",
+  suporte: "border-l-4 border-l-success",
 };
 
-function getDaysInStatus(createdAt: string): number {
-  return Math.max(0, Math.ceil((Date.now() - new Date(createdAt).getTime()) / 86400000));
-}
+const typeConfig: Record<DemandType, { label: string; className: string }> = {
+  suporte: { label: "Suporte", className: "bg-success/10 text-success" },
+  trafego: { label: "Tráfego", className: "bg-info/10 text-info" },
+  design: { label: "Design", className: "bg-chart-3/10 text-chart-3" },
+};
 
 function getSLAStatus(dueDate: string): { color: string; label: string } {
   const days = Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000);
@@ -61,15 +57,27 @@ function getSLAStatus(dueDate: string): { color: string; label: string } {
   return { color: "success", label: `${days}d restante` };
 }
 
+function getDaysInStatus(createdAt: string): number {
+  return Math.max(0, Math.ceil((Date.now() - new Date(createdAt).getTime()) / 86400000));
+}
+
 const Demandas = () => {
-  const { role } = useRole();
+  const { role, colaboradorType } = useRole();
   const [demands, setDemands] = useState(initialDemands);
   const [showAdd, setShowAdd] = useState(false);
   const [newDemand, setNewDemand] = useState({ title: "", description: "", type: "suporte" as DemandType, priority: "saudavel" as Priority, attachment: "" });
 
   const isClient = role === "cliente";
-  const clientFilter = isClient ? "Escritório Silva" : undefined;
-  const filtered = clientFilter ? demands.filter(d => d.client === clientFilter) : demands;
+
+  // Auto-filter by specialty for colaboradores
+  let filtered = demands;
+  if (isClient) {
+    filtered = demands.filter(d => d.client === "Escritório Silva");
+  } else if (role === "colaborador") {
+    if (colaboradorType === "gestor") filtered = demands.filter(d => d.type === "trafego");
+    else if (colaboradorType === "designer") filtered = demands.filter(d => d.type === "design");
+    // CS sees all
+  }
 
   const moveDemand = (id: string, newStatus: DemandStatus) => {
     setDemands(prev => prev.map(d => d.id === id ? { ...d, status: newStatus } : d));
@@ -93,7 +101,10 @@ const Demandas = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{isClient ? "Minhas Solicitações" : "Gestão de Demandas"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{filtered.length} demandas</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {filtered.length} demandas
+            {role === "colaborador" && colaboradorType !== "cs" && ` (filtro: ${colaboradorType === "gestor" ? "Tráfego" : "Design"})`}
+          </p>
         </div>
         <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> {isClient ? "Nova Solicitação" : "Nova Demanda"}</Button>
       </div>
@@ -117,7 +128,7 @@ const Demandas = () => {
                 const isStale = daysOpen > 3 && demand.status !== "concluido";
 
                 return (
-                  <div key={demand.id} className={`kanban-card ${isStale ? "border-primary/60 shadow-primary/10 shadow-md" : ""}`}>
+                  <div key={demand.id} className={`kanban-card ${typeBorderColors[demand.type]} ${isStale ? "shadow-primary/10 shadow-md" : ""}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${pri.className} inline-flex items-center gap-1`}>
                         <PriIcon className="h-3 w-3" /> {pri.label}
@@ -127,13 +138,11 @@ const Demandas = () => {
                     <h4 className="text-sm font-medium mb-1">{demand.title}</h4>
                     {!isClient && <p className="text-xs text-muted-foreground mb-1">{demand.client}</p>}
 
-                    {/* Client: simplified view */}
                     {isClient ? (
                       <div className="flex items-center justify-between mt-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${sla.color}/10 text-${sla.color}`}>{sla.label}</span>
                       </div>
                     ) : (
-                      /* Team: detailed view */
                       <>
                         <p className="text-xs text-muted-foreground/70 line-clamp-2 mb-2">{demand.description}</p>
                         {demand.internalNotes && (
