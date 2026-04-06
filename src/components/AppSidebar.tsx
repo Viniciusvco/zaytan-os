@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, DollarSign, Package, Target, HeadphonesIcon,
-  FileText, BarChart3, Kanban, UserCog, Briefcase, Rocket,
+  FileText, BarChart3, Kanban, UserCog, Briefcase, Rocket, GraduationCap, MessageSquare,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
@@ -28,18 +28,48 @@ const adminItems = {
   gestao: [
     { title: "Equipe (PDI)", url: "/equipe", icon: HeadphonesIcon },
     { title: "Usuários", url: "/usuarios", icon: UserCog },
+    { title: "Academy", url: "/academy", icon: GraduationCap },
   ],
 };
 
+// Dynamic workspace items per colaborador subtype
 const colaboradorItems = {
-  principal: [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Demandas", url: "/demandas", icon: Kanban },
-  ],
-  operacao: [
-    { title: "CRM", url: "/crm", icon: Target },
-    { title: "Performance", url: "/performance", icon: BarChart3 },
-  ],
+  gestor: {
+    principal: [
+      { title: "Dashboard", url: "/", icon: LayoutDashboard },
+      { title: "Performance", url: "/performance", icon: BarChart3 },
+    ],
+    operacao: [
+      { title: "Demandas", url: "/demandas", icon: Kanban },
+      { title: "CRM", url: "/crm", icon: Target },
+    ],
+    formacao: [
+      { title: "Academy", url: "/academy", icon: GraduationCap },
+    ],
+  },
+  designer: {
+    principal: [
+      { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    ],
+    operacao: [
+      { title: "Demandas", url: "/demandas", icon: Kanban },
+    ],
+    formacao: [
+      { title: "Academy", url: "/academy", icon: GraduationCap },
+    ],
+  },
+  cs: {
+    principal: [
+      { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    ],
+    operacao: [
+      { title: "Demandas", url: "/demandas", icon: Kanban },
+      { title: "CRM", url: "/crm", icon: Target },
+    ],
+    formacao: [
+      { title: "Academy", url: "/academy", icon: GraduationCap },
+    ],
+  },
 };
 
 const clienteItems = {
@@ -47,6 +77,9 @@ const clienteItems = {
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "Demandas", url: "/demandas", icon: Kanban },
     { title: "CRM", url: "/crm", icon: Target },
+  ],
+  feedback: [
+    { title: "Feedbacks", url: "/feedbacks", icon: MessageSquare },
   ],
   setup: [
     { title: "Onboarding", url: "/onboarding", icon: Rocket },
@@ -56,7 +89,7 @@ const clienteItems = {
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { role, whiteLabel } = useRole();
+  const { role, colaboradorType, whiteLabel, trainingComplete } = useRole();
 
   const renderItems = (items: { title: string; url: string; icon: any }[]) =>
     items.map((item) => (
@@ -70,9 +103,24 @@ export function AppSidebar() {
       </SidebarMenuItem>
     ));
 
-  const groups = role === "admin" ? adminItems : role === "colaborador" ? colaboradorItems : clienteItems;
+  let groups: Record<string, { title: string; url: string; icon: any }[]>;
+
+  if (role === "admin") {
+    groups = adminItems;
+  } else if (role === "colaborador") {
+    // Training lock: only show Academy
+    if (!trainingComplete) {
+      groups = { formacao: [{ title: "Academy", url: "/academy", icon: GraduationCap }] };
+    } else {
+      groups = colaboradorItems[colaboradorType];
+    }
+  } else {
+    groups = clienteItems;
+  }
+
   const groupLabels: Record<string, string> = {
-    principal: "Principal", operacao: "Operação", gestao: "Gestão", setup: "Configuração",
+    principal: "Principal", operacao: "Operação", gestao: "Gestão",
+    setup: "Configuração", formacao: "Formação", feedback: "Sucesso",
   };
 
   return (
@@ -85,7 +133,11 @@ export function AppSidebar() {
           {!collapsed && (
             <div>
               <h2 className="text-sm font-bold text-foreground tracking-tight">{whiteLabel.companyName} OS</h2>
-              <p className="text-[10px] text-muted-foreground capitalize">{role === "admin" ? "Admin" : role === "colaborador" ? "Equipe" : "Cliente"}</p>
+              <p className="text-[10px] text-muted-foreground capitalize">
+                {role === "admin" ? "Admin" : role === "colaborador"
+                  ? (colaboradorType === "gestor" ? "Gestor" : colaboradorType === "designer" ? "Designer" : "CS")
+                  : "Cliente"}
+              </p>
             </div>
           )}
         </div>
@@ -103,7 +155,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{whiteLabel.companyName} OS v6.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{whiteLabel.companyName} OS v7.0</p>
           </div>
         )}
       </SidebarFooter>
