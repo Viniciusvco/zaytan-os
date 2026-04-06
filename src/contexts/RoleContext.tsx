@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
 export type UserRole = "admin" | "colaborador" | "cliente";
-export type ColaboradorSubtype = "gestor" | "designer" | "editor" | "atendimento";
+export type ColaboradorSubtype = "gestor" | "designer" | "cs";
 
 interface WhiteLabelConfig {
   logo?: string;
@@ -17,6 +17,10 @@ interface RoleContextType {
   whiteLabel: WhiteLabelConfig;
   setWhiteLabel: (config: WhiteLabelConfig) => void;
   currentUser: { name: string; email: string };
+  onboardingComplete: boolean;
+  setOnboardingComplete: (v: boolean) => void;
+  trainingComplete: boolean;
+  setTrainingComplete: (v: boolean) => void;
 }
 
 const RoleContext = createContext<RoleContextType | null>(null);
@@ -28,6 +32,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     primaryColor: "#FF6E27",
     companyName: "Zaytan",
   });
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [trainingComplete, setTrainingComplete] = useState(true);
 
   const currentUser = {
     admin: { name: "Admin Zaytan", email: "admin@zaytan.com" },
@@ -36,7 +42,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }[role];
 
   return (
-    <RoleContext.Provider value={{ role, setRole, colaboradorType, setColaboradorType, whiteLabel, setWhiteLabel, currentUser }}>
+    <RoleContext.Provider value={{
+      role, setRole, colaboradorType, setColaboradorType,
+      whiteLabel, setWhiteLabel, currentUser,
+      onboardingComplete, setOnboardingComplete,
+      trainingComplete, setTrainingComplete,
+    }}>
       {children}
     </RoleContext.Provider>
   );
