@@ -533,6 +533,7 @@ const Dashboard = () => {
     if (colaboradorType === "designer") return <DesignerDashboard />;
     return <CSDashboard />;
   }
+  // Admin: redirect to Financeiro - no dashboard view
   return <AdminDashboard />;
 };
 
