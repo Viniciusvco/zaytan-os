@@ -133,7 +133,7 @@ const Financeiro = () => {
   const totalReceita = receitas.reduce((s: number, r: any) => s + Number(r.amount), 0);
   const totalDespesa = despesas.reduce((s: number, r: any) => s + Number(r.amount), 0);
 
-  const RecordForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
+  const renderFormFields = (data: any, onChange: (d: any) => void) => (
     <div className="space-y-3">
       <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.type} onChange={e => onChange({ ...data, type: e.target.value })}>
         <option value="receita">Receita</option><option value="despesa">Despesa</option>
@@ -224,6 +224,8 @@ const Financeiro = () => {
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Categoria</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Início Contrato</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Dia Pgto</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Pago?</th>
             <th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th>
             <th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th>
@@ -235,6 +237,8 @@ const Financeiro = () => {
                 <td className="py-2 text-sm text-muted-foreground">{r.clients?.name || "—"}</td>
                 <td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "receita" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{r.type === "receita" ? "Receita" : "Despesa"}</span></td>
                 <td className="py-2 text-xs text-muted-foreground">{r.category || "—"}</td>
+                <td className="py-2 text-xs text-muted-foreground">{r.mrr_start_date ? new Date(r.mrr_start_date + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</td>
+                <td className="py-2 text-xs text-muted-foreground">{r.due_day ? `Dia ${r.due_day}` : "—"}</td>
                 <td className="py-2">
                   <Switch
                     checked={r.status === "pago"}
@@ -249,18 +253,18 @@ const Financeiro = () => {
                 </div></td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado</td></tr>}
           </tbody>
         </table>
       </div>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Lançamento</DialogTitle></DialogHeader>
-        <RecordForm data={form} onChange={setForm} />
+        {renderFormFields(form, setForm)}
         <DialogFooter><Button onClick={() => { if (form.amount > 0) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
       <Dialog open={!!editRecord} onOpenChange={() => setEditRecord(null)}><DialogContent><DialogHeader><DialogTitle>Editar Lançamento</DialogTitle></DialogHeader>
-        {editRecord && <RecordForm data={editRecord} onChange={setEditRecord} />}
+        {editRecord && renderFormFields(editRecord, setEditRecord)}
         <DialogFooter><Button onClick={() => { if (editRecord) updateMut.mutate(editRecord); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
       </DialogContent></Dialog>
 

@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Power, PowerOff, Pencil } from "lucide-react";
+import { Plus, Power, PowerOff, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -35,6 +36,7 @@ const Usuarios = () => {
   const [filterType, setFilterType] = useState("all");
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "cliente" as AppRole, colaborador_type: "gestor" as ColabType });
   const [editUser, setEditUser] = useState<any>(null);
+  const [deleteUserId, setDeleteUserId] = useState<any>(null);
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ["profiles"],
@@ -64,19 +66,13 @@ const Usuarios = () => {
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, active, user_id }: { id: string; active: boolean; user_id: string }) => {
-      // Update profile
       const { error } = await supabase.from("profiles").update({ active }).eq("id", id);
       if (error) throw error;
-      
-      // If deactivating, archive related data
       if (!active) {
-        // Get client linked to this user
         const { data: clientData } = await supabase.from("clients").select("id").eq("user_id", user_id);
         if (clientData && clientData.length > 0) {
           const clientId = clientData[0].id;
-          // Deactivate client
           await supabase.from("clients").update({ active: false }).eq("id", clientId);
-          // Cancel active contracts
           await supabase.from("contracts").update({ status: "cancelado" as any }).eq("client_id", clientId).eq("status", "ativo" as any);
         }
       }
@@ -85,15 +81,33 @@ const Usuarios = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const deleteUserMut = useMutation({
+    mutationFn: async (user: any) => {
+      // Archive client data, deactivate contracts, then delete profile
+      const { data: clientData } = await supabase.from("clients").select("id").eq("user_id", user.user_id);
+      if (clientData && clientData.length > 0) {
+        const clientId = clientData[0].id;
+        await supabase.from("clients").update({ active: false }).eq("id", clientId);
+        await supabase.from("contracts").update({ status: "cancelado" as any }).eq("client_id", clientId);
+      }
+      // Delete profile
+      const { error } = await supabase.from("profiles").delete().eq("id", user.id);
+      if (error) throw error;
+      // Delete user_roles
+      await supabase.from("user_roles").delete().eq("user_id", user.user_id);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+      setDeleteUserId(null);
+      toast.success("Usuário excluído");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const updateUser = useMutation({
     mutationFn: async (u: { id: string; full_name: string; email: string; contract_start_date: string | null }) => {
-      const updateData: any = {
-        full_name: u.full_name,
-        email: u.email,
-      };
-      if (u.contract_start_date) {
-        updateData.contract_start_date = u.contract_start_date;
-      }
+      const updateData: any = { full_name: u.full_name, email: u.email };
+      if (u.contract_start_date) updateData.contract_start_date = u.contract_start_date;
       const { error } = await supabase.from("profiles").update(updateData).eq("id", u.id);
       if (error) throw error;
     },
@@ -155,6 +169,9 @@ const Usuarios = () => {
                       </button>
                       <button onClick={() => toggleActive.mutate({ id: u.id, active: !u.active, user_id: u.user_id })} className="p-1.5 rounded-md hover:bg-muted">
                         {u.active ? <PowerOff className="h-3.5 w-3.5 text-warning" /> : <Power className="h-3.5 w-3.5 text-success" />}
+                      </button>
+                      <button onClick={() => setDeleteUserId(u)} className="p-1.5 rounded-md hover:bg-destructive/10">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
                       </button>
                     </div>
                   </td>
@@ -220,6 +237,22 @@ const Usuarios = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete user confirm */}
+      <AlertDialog open={!!deleteUserId} onOpenChange={() => setDeleteUserId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O usuário <strong>{deleteUserId?.full_name}</strong> será excluído. Seus dados financeiros e contratos serão arquivados (inativo/cancelado). Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (deleteUserId) deleteUserMut.mutate(deleteUserId); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

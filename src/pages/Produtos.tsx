@@ -13,6 +13,8 @@ const categoryConfig: Record<string, { label: string; className: string }> = {
   automacao: { label: "Automação", className: "bg-info/10 text-info" },
   lp: { label: "Landing Page", className: "bg-warning/10 text-warning" },
   consultoria: { label: "Consultoria", className: "bg-success/10 text-success" },
+  social_media: { label: "Social Media", className: "bg-accent/80 text-accent-foreground" },
+  edicao_video: { label: "Edição de Vídeo", className: "bg-muted text-foreground" },
 };
 
 const Produtos = () => {
@@ -67,8 +69,6 @@ const Produtos = () => {
     return matchSearch && matchCat;
   });
 
-  // Form fields rendered inline to avoid re-mount on state change
-
   if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Carregando...</p></div>;
 
   return (
@@ -86,6 +86,8 @@ const Produtos = () => {
           { label: "Todos", value: "all" }, { label: "Tráfego", value: "trafego" },
           { label: "Automação", value: "automacao" }, { label: "Landing Page", value: "lp" },
           { label: "Consultoria", value: "consultoria" },
+          { label: "Social Media", value: "social_media" },
+          { label: "Edição de Vídeo", value: "edicao_video" },
         ]}]}
         activeFilters={{ cat: catFilter }}
         onFilterChange={(_, v) => setCatFilter(v)}
@@ -105,7 +107,7 @@ const Produtos = () => {
               </div>
               <h3 className="text-sm font-semibold mb-1">{p.name}</h3>
               <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{p.description}</p>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex gap-2">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${cat.className}`}>{cat.label}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.recurrence === "mensal" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
@@ -113,8 +115,11 @@ const Produtos = () => {
                   </span>
                 </div>
               </div>
-              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                Range: R$ {(p.min_price || 0).toLocaleString()} — R$ {(p.max_price || 0).toLocaleString()}
+              <div className="bg-muted/50 rounded-lg px-3 py-2 border border-border">
+                <p className="text-[10px] text-muted-foreground mb-0.5">Range de Preço</p>
+                <p className="text-sm font-bold text-foreground">
+                  R$ {(p.min_price || 0).toLocaleString()} <span className="text-muted-foreground font-normal">—</span> R$ {(p.max_price || 0).toLocaleString()}
+                </p>
               </div>
             </div>
           );
@@ -127,7 +132,7 @@ const Produtos = () => {
             <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
             <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={form.description || ""} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
             <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={form.category || "trafego"} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
+              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option><option value="social_media">Social Media</option><option value="edicao_video">Edição de Vídeo</option>
             </select>
             <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={form.recurrence || "mensal"} onChange={e => setForm(f => ({ ...f, recurrence: e.target.value }))}>
               <option value="mensal">Recorrente (Mensal)</option><option value="pontual">Pontual</option>
@@ -147,7 +152,7 @@ const Produtos = () => {
             <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={editProduct.name} onChange={e => setEditProduct((p: any) => ({ ...p, name: e.target.value }))} />
             <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={editProduct.description || ""} onChange={e => setEditProduct((p: any) => ({ ...p, description: e.target.value }))} />
             <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editProduct.category || "trafego"} onChange={e => setEditProduct((p: any) => ({ ...p, category: e.target.value }))}>
-              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
+              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option><option value="social_media">Social Media</option><option value="edicao_video">Edição de Vídeo</option>
             </select>
             <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editProduct.recurrence || "mensal"} onChange={e => setEditProduct((p: any) => ({ ...p, recurrence: e.target.value }))}>
               <option value="mensal">Recorrente (Mensal)</option><option value="pontual">Pontual</option>
