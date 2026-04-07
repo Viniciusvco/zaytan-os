@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useRole, mockPayments } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
+import { Navigate } from "react-router-dom";
 import {
   DollarSign, TrendingUp, Target, Repeat, Zap, Users, MousePointer, BarChart3,
   AlertTriangle, CheckCircle2, Clock, Rocket, ArrowUp, ArrowDown,
