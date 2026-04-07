@@ -188,7 +188,9 @@ export type Database = {
           created_at: string
           description: string | null
           due_date: string | null
+          due_day: number | null
           id: string
+          mrr_start_date: string | null
           paid_date: string | null
           status: Database["public"]["Enums"]["payment_status"]
           type: Database["public"]["Enums"]["financial_type"]
@@ -201,7 +203,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          due_day?: number | null
           id?: string
+          mrr_start_date?: string | null
           paid_date?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           type: Database["public"]["Enums"]["financial_type"]
@@ -214,7 +218,9 @@ export type Database = {
           created_at?: string
           description?: string | null
           due_date?: string | null
+          due_day?: number | null
           id?: string
+          mrr_start_date?: string | null
           paid_date?: string | null
           status?: Database["public"]["Enums"]["payment_status"]
           type?: Database["public"]["Enums"]["financial_type"]
@@ -382,6 +388,7 @@ export type Database = {
           colaborador_type:
             | Database["public"]["Enums"]["colaborador_subtype"]
             | null
+          contract_start_date: string | null
           created_at: string
           email: string
           full_name: string
@@ -397,6 +404,7 @@ export type Database = {
           colaborador_type?:
             | Database["public"]["Enums"]["colaborador_subtype"]
             | null
+          contract_start_date?: string | null
           created_at?: string
           email: string
           full_name: string
@@ -412,6 +420,7 @@ export type Database = {
           colaborador_type?:
             | Database["public"]["Enums"]["colaborador_subtype"]
             | null
+          contract_start_date?: string | null
           created_at?: string
           email?: string
           full_name?: string

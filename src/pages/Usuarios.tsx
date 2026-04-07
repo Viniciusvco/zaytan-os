@@ -18,14 +18,22 @@ const typeConfig: Record<string, { label: string; className: string }> = {
 
 const colabLabels: Record<ColabType, string> = { gestor: "Gestor de Tráfego", designer: "Designer", cs: "CS" };
 
+function calcLifetime(startDate: string | null): string {
+  if (!startDate) return "—";
+  const start = new Date(startDate);
+  const now = new Date();
+  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+  if (months < 1) return "< 1 mês";
+  if (months === 1) return "1 mês";
+  return `${months} meses`;
+}
+
 const Usuarios = () => {
   const qc = useQueryClient();
   const { createUser } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "cliente" as AppRole, colaborador_type: "gestor" as ColabType });
-
-  // Edit user state
   const [editUser, setEditUser] = useState<any>(null);
 
   const { data: profiles = [], isLoading } = useQuery({
@@ -55,21 +63,38 @@ const Usuarios = () => {
   });
 
   const toggleActive = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+    mutationFn: async ({ id, active, user_id }: { id: string; active: boolean; user_id: string }) => {
+      // Update profile
       const { error } = await supabase.from("profiles").update({ active }).eq("id", id);
       if (error) throw error;
+      
+      // If deactivating, archive related data
+      if (!active) {
+        // Get client linked to this user
+        const { data: clientData } = await supabase.from("clients").select("id").eq("user_id", user_id);
+        if (clientData && clientData.length > 0) {
+          const clientId = clientData[0].id;
+          // Deactivate client
+          await supabase.from("clients").update({ active: false }).eq("id", clientId);
+          // Cancel active contracts
+          await supabase.from("contracts").update({ status: "cancelado" as any }).eq("client_id", clientId).eq("status", "ativo" as any);
+        }
+      }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["profiles"] }); toast.success("Status atualizado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
   const updateUser = useMutation({
-    mutationFn: async (u: { id: string; full_name: string; email: string; created_at: string }) => {
-      const { error } = await supabase.from("profiles").update({
+    mutationFn: async (u: { id: string; full_name: string; email: string; contract_start_date: string | null }) => {
+      const updateData: any = {
         full_name: u.full_name,
         email: u.email,
-        created_at: u.created_at,
-      }).eq("id", u.id);
+      };
+      if (u.contract_start_date) {
+        updateData.contract_start_date = u.contract_start_date;
+      }
+      const { error } = await supabase.from("profiles").update(updateData).eq("id", u.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -106,26 +131,29 @@ const Usuarios = () => {
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Email</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Perfil</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
-            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Entrada</th>
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Início Contrato</th>
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Lifetime</th>
             <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Ações</th>
           </tr></thead>
           <tbody>
             {filtered.map((u: any) => {
               const tc = typeConfig[u.role] || typeConfig.cliente;
               const subLabel = u.role === "colaborador" && u.colaborador_type ? ` (${colabLabels[u.colaborador_type as ColabType] || u.colaborador_type})` : "";
+              const contractDate = u.contract_start_date || u.created_at;
               return (
                 <tr key={u.id} className={`border-b border-border last:border-0 hover:bg-muted/30 ${!u.active ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.full_name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}</div><span className="text-sm font-medium">{u.full_name}</span></div></td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${tc.className}`}>{tc.label}{subLabel}</span></td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${u.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.active ? "Ativo" : "Inativo"}</span></td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(u.created_at).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(contractDate).toLocaleDateString("pt-BR")}</td>
+                  <td className="px-4 py-3 text-sm font-medium">{calcLifetime(contractDate)}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => setEditUser({ ...u, created_at_date: u.created_at ? u.created_at.split("T")[0] : "" })} className="p-1.5 rounded-md hover:bg-muted">
+                      <button onClick={() => setEditUser({ ...u, contract_start_date_input: u.contract_start_date || (u.created_at ? u.created_at.split("T")[0] : "") })} className="p-1.5 rounded-md hover:bg-muted">
                         <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
-                      <button onClick={() => toggleActive.mutate({ id: u.id, active: !u.active })} className="p-1.5 rounded-md hover:bg-muted">
+                      <button onClick={() => toggleActive.mutate({ id: u.id, active: !u.active, user_id: u.user_id })} className="p-1.5 rounded-md hover:bg-muted">
                         {u.active ? <PowerOff className="h-3.5 w-3.5 text-warning" /> : <Power className="h-3.5 w-3.5 text-success" />}
                       </button>
                     </div>
@@ -170,8 +198,9 @@ const Usuarios = () => {
                 <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.email} onChange={e => setEditUser((p: any) => ({ ...p, email: e.target.value }))} />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Data de entrada</label>
-                <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.created_at_date} onChange={e => setEditUser((p: any) => ({ ...p, created_at_date: e.target.value }))} />
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Data de Início do Contrato</label>
+                <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.contract_start_date_input} onChange={e => setEditUser((p: any) => ({ ...p, contract_start_date_input: e.target.value }))} />
+                <p className="text-[10px] text-muted-foreground mt-1">Permite datas passadas para gestão retroativa</p>
               </div>
             </div>
           )}
@@ -182,7 +211,7 @@ const Usuarios = () => {
                   id: editUser.id,
                   full_name: editUser.full_name,
                   email: editUser.email,
-                  created_at: editUser.created_at_date ? new Date(editUser.created_at_date).toISOString() : editUser.created_at,
+                  contract_start_date: editUser.contract_start_date_input || null,
                 });
               }
             }} disabled={updateUser.isPending}>

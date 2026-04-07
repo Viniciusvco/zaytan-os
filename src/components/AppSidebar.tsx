@@ -16,7 +16,7 @@ const adminItems = {
   principal: [
     { title: "Financeiro", url: "/financeiro", icon: DollarSign },
     { title: "Produtos", url: "/produtos", icon: Package },
-    { title: "Contratos", url: "/contratos", icon: FileText },
+    { title: "Motor Revisional", url: "/contratos", icon: FileText },
   ],
   operacao: [
     { title: "Demandas", url: "/demandas", icon: Kanban },
