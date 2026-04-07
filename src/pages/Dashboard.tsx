@@ -99,11 +99,10 @@ function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Leads Gerados", value: totalLeads, prev: prevLeads, icon: Users, format: (v: number) => v.toString() },
           { label: "Custo por Lead", value: cpl, prev: prevCpl, icon: DollarSign, format: (v: number) => `R$ ${v.toFixed(2)}` },
-          { label: "Cliques", value: cliques, prev: prevCliques, icon: MousePointer, format: (v: number) => v.toLocaleString() },
           { label: "Faturamento", value: faturamento, prev: faturamento * 0.9, icon: Receipt, format: (v: number) => `R$ ${(v / 1000).toFixed(1)}k` },
           { label: "Ticket Médio", value: ticketMedio, prev: ticketMedio * 0.95, icon: Target, format: (v: number) => `R$ ${v.toLocaleString()}` },
         ].map(m => {
