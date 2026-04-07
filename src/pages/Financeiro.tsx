@@ -1,20 +1,21 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingUp, ArrowDownRight, Plus, Pencil, Trash2 } from "lucide-react";
+import { DollarSign, TrendingUp, ArrowDownRight, Plus, Pencil, Trash2, CheckCircle2, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilter";
 import { ContextFilters } from "@/components/ContextFilters";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 type FinancialType = "receita" | "despesa";
 type PaymentStatus = "pendente" | "pago" | "atrasado";
 
-const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "", is_mrr: false };
+const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "" };
 
-const emptyMrrForm = { client_id: "", mrr_value: 0, description: "MRR" };
+const emptyMrrForm = { client_id: "", mrr_value: 0, due_day: 10, mrr_start_date: "", description: "MRR" };
 
 const Financeiro = () => {
   const qc = useQueryClient();
@@ -59,7 +60,16 @@ const Financeiro = () => {
 
   const createMrrMut = useMutation({
     mutationFn: async (p: typeof emptyMrrForm) => {
-      const payload: any = { amount: p.mrr_value, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: p.description || "MRR", category: "MRR", client_id: p.client_id || null };
+      const payload: any = {
+        amount: p.mrr_value,
+        type: "receita" as FinancialType,
+        status: "pendente" as PaymentStatus,
+        description: p.description || "MRR",
+        category: "MRR",
+        client_id: p.client_id || null,
+        due_day: p.due_day || null,
+        mrr_start_date: p.mrr_start_date || null,
+      };
       const { error } = await supabase.from("financial_records").insert(payload);
       if (error) throw error;
     },
@@ -79,6 +89,18 @@ const Financeiro = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const togglePaid = useMutation({
+    mutationFn: async ({ id, paid }: { id: string; paid: boolean }) => {
+      const { error } = await supabase.from("financial_records").update({
+        status: paid ? "pago" as PaymentStatus : "pendente" as PaymentStatus,
+        paid_date: paid ? new Date().toISOString().split("T")[0] : null,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("financial_records").delete().eq("id", id);
@@ -88,19 +110,28 @@ const Financeiro = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const filtered = records.filter((r: any) => {
+  // Filter by date range
+  const dateFiltered = records.filter((r: any) => {
+    const d = new Date(r.created_at);
+    return d >= dateRange.from && d <= new Date(dateRange.to.getTime() + 86400000);
+  });
+
+  const filtered = dateFiltered.filter((r: any) => {
     const matchSearch = (r.description || "").toLowerCase().includes(search.toLowerCase()) || (r.clients?.name || "").toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === "all" || r.type === typeFilter;
     const matchClient = clientFilter === "all" || r.client_id === clientFilter;
     return matchSearch && matchType && matchClient;
   });
 
-  const receitas = records.filter((r: any) => r.type === "receita");
-  const despesas = records.filter((r: any) => r.type === "despesa");
+  // MRR metrics
+  const mrrRecords = dateFiltered.filter((r: any) => r.category === "MRR" && r.type === "receita");
+  const mrrProjetado = mrrRecords.reduce((s: number, r: any) => s + Number(r.amount), 0);
+  const mrrRealizado = mrrRecords.filter((r: any) => r.status === "pago").reduce((s: number, r: any) => s + Number(r.amount), 0);
+
+  const receitas = dateFiltered.filter((r: any) => r.type === "receita");
+  const despesas = dateFiltered.filter((r: any) => r.type === "despesa");
   const totalReceita = receitas.reduce((s: number, r: any) => s + Number(r.amount), 0);
   const totalDespesa = despesas.reduce((s: number, r: any) => s + Number(r.amount), 0);
-  const lucro = totalReceita - totalDespesa;
-  const margem = totalReceita > 0 ? Math.round((lucro / totalReceita) * 100) : 0;
 
   const RecordForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
     <div className="space-y-3">
@@ -134,12 +165,32 @@ const Financeiro = () => {
         </div>
       </div>
 
+      {/* MRR Projetado vs Realizado */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="metric-card border-l-4 border-l-primary">
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-muted-foreground">MRR Projetado</span>
+          </div>
+          <p className="text-2xl font-bold">R$ {mrrProjetado.toLocaleString()}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Soma dos MRRs ativos no período</p>
+        </div>
+        <div className="metric-card border-l-4 border-l-success">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+            <span className="text-xs font-medium text-muted-foreground">MRR Realizado</span>
+          </div>
+          <p className="text-2xl font-bold text-success">R$ {mrrRealizado.toLocaleString()}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">Apenas contratos marcados como Pago</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Receita Total", value: totalReceita, icon: DollarSign, color: "primary" },
           { label: "Despesa Total", value: totalDespesa, icon: ArrowDownRight, color: "destructive" },
-          { label: "Lucro", value: lucro, icon: TrendingUp, color: "success" },
-          { label: "Margem", value: margem, icon: TrendingUp, color: "success", suffix: "%" },
+          { label: "Lucro", value: totalReceita - totalDespesa, icon: TrendingUp, color: "success" },
+          { label: "Margem", value: totalReceita > 0 ? Math.round(((totalReceita - totalDespesa) / totalReceita) * 100) : 0, icon: TrendingUp, color: "success", suffix: "%" },
         ].map(m => (
           <div key={m.label} className="metric-card">
             <m.icon className={`h-4 w-4 text-${m.color} mb-1`} />
@@ -173,7 +224,7 @@ const Financeiro = () => {
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Categoria</th>
-            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Status</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Pago?</th>
             <th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th>
             <th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th>
           </tr></thead>
@@ -184,7 +235,13 @@ const Financeiro = () => {
                 <td className="py-2 text-sm text-muted-foreground">{r.clients?.name || "—"}</td>
                 <td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "receita" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{r.type === "receita" ? "Receita" : "Despesa"}</span></td>
                 <td className="py-2 text-xs text-muted-foreground">{r.category || "—"}</td>
-                <td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.status === "pago" ? "bg-success/10 text-success" : r.status === "atrasado" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"}`}>{r.status === "pago" ? "Pago" : r.status === "atrasado" ? "Atrasado" : "Pendente"}</span></td>
+                <td className="py-2">
+                  <Switch
+                    checked={r.status === "pago"}
+                    onCheckedChange={(checked) => togglePaid.mutate({ id: r.id, paid: checked })}
+                    className="scale-75"
+                  />
+                </td>
                 <td className={`py-2 text-right text-sm font-medium ${r.type === "receita" ? "text-success" : "text-destructive"}`}>{r.type === "despesa" ? "-" : ""}R$ {Number(r.amount).toLocaleString()}</td>
                 <td className="py-2 text-right"><div className="flex justify-end gap-1">
                   <button onClick={() => setEditRecord({ ...r })} className="p-1 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
@@ -220,6 +277,14 @@ const Financeiro = () => {
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Valor MRR (R$)</label>
             <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Ex: 2500" value={mrrForm.mrr_value || ""} onChange={e => setMrrForm(p => ({ ...p, mrr_value: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Dia do Vencimento</label>
+            <input type="number" min={1} max={31} className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Ex: 10" value={mrrForm.due_day || ""} onChange={e => setMrrForm(p => ({ ...p, due_day: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Data de Início</label>
+            <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={mrrForm.mrr_start_date} onChange={e => setMrrForm(p => ({ ...p, mrr_start_date: e.target.value }))} />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Descrição</label>
