@@ -1,253 +1,190 @@
 import { useState } from "react";
-import { DollarSign, TrendingUp, ArrowDownRight, Receipt, Repeat, Zap, Plus, Pencil, Trash2 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { DollarSign, TrendingUp, ArrowDownRight, Plus, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilter";
 import { ContextFilters } from "@/components/ContextFilters";
+import { toast } from "sonner";
 
-interface RevenueEntry { id: string; client: string; type: "mrr" | "setup" | "oneoff"; value: number; description: string }
-interface CostEntry { id: string; name: string; type: "fixo" | "variavel"; value: number; project?: string }
+type FinancialType = "receita" | "despesa";
+type PaymentStatus = "pendente" | "pago" | "atrasado";
 
-const initialRevenues: RevenueEntry[] = [
-  { id: "1", client: "Escritório Silva", type: "mrr", value: 4500, description: "Gestão mensal" },
-  { id: "2", client: "Clínica Bella", type: "mrr", value: 3200, description: "Tráfego mensal" },
-  { id: "3", client: "Clínica Bella", type: "oneoff", value: 1500, description: "Landing Page" },
-  { id: "4", client: "Imobiliária Nova Era", type: "mrr", value: 6800, description: "Automação mensal" },
-  { id: "5", client: "Imobiliária Nova Era", type: "setup", value: 3000, description: "Setup CRM" },
-  { id: "6", client: "TechShop", type: "mrr", value: 5500, description: "Google Ads mensal" },
-  { id: "7", client: "Construtora Horizonte", type: "mrr", value: 8000, description: "Pacote completo" },
-  { id: "8", client: "Construtora Horizonte", type: "setup", value: 5000, description: "Setup automação" },
-];
-
-const initialCosts: CostEntry[] = [
-  { id: "1", name: "Ferramentas IA (GPT, Claude)", type: "fixo", value: 2800 },
-  { id: "2", name: "Meta Ads (Conta Agência)", type: "fixo", value: 1200 },
-  { id: "3", name: "N8N Cloud", type: "fixo", value: 800 },
-  { id: "4", name: "Freelancers", type: "variavel", value: 4500, project: "Vários" },
-  { id: "5", name: "Hospedagem / Domínios", type: "fixo", value: 600 },
-  { id: "6", name: "APIs Externas", type: "variavel", value: 1200 },
-];
-
-const monthlyData = [
-  { month: "Out", receita: 28000, custos: 12000 },
-  { month: "Nov", receita: 32000, custos: 13500 },
-  { month: "Dez", receita: 35000, custos: 14000 },
-  { month: "Jan", receita: 38000, custos: 14200 },
-  { month: "Fev", receita: 40000, custos: 15000 },
-  { month: "Mar", receita: 42800, custos: 14800 },
-];
-
-const nicheData = [
-  { name: "Advocacia", value: 35, profit: 72 },
-  { name: "Saúde/Estética", value: 25, profit: 65 },
-  { name: "Imobiliário", value: 20, profit: 58 },
-  { name: "E-commerce", value: 12, profit: 70 },
-  { name: "Serviços", value: 8, profit: 55 },
-];
-const COLORS = ["hsl(17, 100%, 58%)", "hsl(200, 70%, 55%)", "hsl(262, 60%, 60%)", "hsl(152, 60%, 42%)", "hsl(340, 65%, 55%)"];
-
-// Simulated months of relationship for LTV
-const clientMonths: Record<string, number> = {
-  "Escritório Silva": 6,
-  "Clínica Bella": 4,
-  "Imobiliária Nova Era": 2,
-  "TechShop": 5,
-  "Construtora Horizonte": 1,
-};
+const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "" };
 
 const Financeiro = () => {
-  const [revenues, setRevenues] = useState(initialRevenues);
-  const [costs, setCosts] = useState(initialCosts);
+  const qc = useQueryClient();
   const [dateRange, setDateRange] = useState(useDefaultDateRange());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [showAddRev, setShowAddRev] = useState(false);
-  const [showAddCost, setShowAddCost] = useState(false);
-  const [editRev, setEditRev] = useState<RevenueEntry | null>(null);
-  const [editCost, setEditCost] = useState<CostEntry | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: "rev" | "cost"; id: string } | null>(null);
-  const [newRev, setNewRev] = useState<Omit<RevenueEntry, "id">>({ client: "", type: "mrr", value: 0, description: "" });
-  const [newCost, setNewCost] = useState<Omit<CostEntry, "id">>({ name: "", type: "fixo", value: 0 });
+  const [showAdd, setShowAdd] = useState(false);
+  const [editRecord, setEditRecord] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm);
 
-  const filteredRevenues = revenues.filter((r) => {
-    const matchSearch = r.client.toLowerCase().includes(search.toLowerCase()) || r.description.toLowerCase().includes(search.toLowerCase());
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ["financial_records"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("financial_records").select("*, clients(name)").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: clients = [] } = useQuery({
+    queryKey: ["clients-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clients").select("id, name").eq("active", true).order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const createMut = useMutation({
+    mutationFn: async (p: typeof emptyForm) => {
+      const payload: any = { amount: p.amount, type: p.type, status: p.status, description: p.description || null, category: p.category || null, client_id: p.client_id || null, due_date: p.due_date || null };
+      const { error } = await supabase.from("financial_records").insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); setShowAdd(false); setForm(emptyForm); toast.success("Lançamento criado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: async (p: any) => {
+      const { id, created_at, updated_at, clients: _c, ...rest } = p;
+      if (!rest.client_id) rest.client_id = null;
+      if (!rest.due_date) rest.due_date = null;
+      if (!rest.paid_date) rest.paid_date = null;
+      const { error } = await supabase.from("financial_records").update(rest).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); setEditRecord(null); toast.success("Lançamento atualizado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("financial_records").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); setDeleteId(null); toast.success("Lançamento excluído"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const filtered = records.filter((r: any) => {
+    const matchSearch = (r.description || "").toLowerCase().includes(search.toLowerCase()) || (r.clients?.name || "").toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === "all" || r.type === typeFilter;
     return matchSearch && matchType;
   });
 
-  const mrrTotal = revenues.filter(r => r.type === "mrr").reduce((s, r) => s + r.value, 0);
-  const setupTotal = revenues.filter(r => r.type === "setup").reduce((s, r) => s + r.value, 0);
-  const oneOffTotal = revenues.filter(r => r.type === "oneoff").reduce((s, r) => s + r.value, 0);
-  const tcv = mrrTotal * 12 + setupTotal + oneOffTotal;
-  const totalCustos = costs.reduce((s, c) => s + c.value, 0);
-  const totalReceita = mrrTotal + setupTotal + oneOffTotal;
-  const lucro = totalReceita - totalCustos;
+  const receitas = records.filter((r: any) => r.type === "receita");
+  const despesas = records.filter((r: any) => r.type === "despesa");
+  const totalReceita = receitas.reduce((s: number, r: any) => s + Number(r.amount), 0);
+  const totalDespesa = despesas.reduce((s: number, r: any) => s + Number(r.amount), 0);
+  const lucro = totalReceita - totalDespesa;
   const margem = totalReceita > 0 ? Math.round((lucro / totalReceita) * 100) : 0;
 
-  const clientNames = [...new Set(revenues.map(r => r.client))];
-  const clientMargins = clientNames.map(name => {
-    const rev = revenues.filter(r => r.client === name).reduce((s, r) => s + r.value, 0);
-    const mrrClient = revenues.filter(r => r.client === name && r.type === "mrr").reduce((s, r) => s + r.value, 0);
-    const costShare = Math.round(totalCustos * (rev / totalReceita));
-    const profit = rev - costShare;
-    const margin = rev > 0 ? Math.round((profit / rev) * 100) : 0;
-    const months = clientMonths[name] || 1;
-    const ltv = mrrClient * months + revenues.filter(r => r.client === name && r.type !== "mrr").reduce((s, r) => s + r.value, 0);
-    return { client: name, revenue: rev, costs: costShare, profit, margin, ltv };
-  });
+  const RecordForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
+    <div className="space-y-3">
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.type} onChange={e => onChange({ ...data, type: e.target.value })}>
+        <option value="receita">Receita</option><option value="despesa">Despesa</option>
+      </select>
+      <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Valor (R$)" value={data.amount || ""} onChange={e => onChange({ ...data, amount: Number(e.target.value) })} />
+      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={data.description || ""} onChange={e => onChange({ ...data, description: e.target.value })} />
+      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Categoria (ex: MRR, Setup, Ferramenta)" value={data.category || ""} onChange={e => onChange({ ...data, category: e.target.value })} />
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.client_id || ""} onChange={e => onChange({ ...data, client_id: e.target.value })}>
+        <option value="">Sem cliente</option>
+        {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.status} onChange={e => onChange({ ...data, status: e.target.value })}>
+        <option value="pendente">Pendente</option><option value="pago">Pago</option><option value="atrasado">Atrasado</option>
+      </select>
+      <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.due_date || ""} onChange={e => onChange({ ...data, due_date: e.target.value })} />
+    </div>
+  );
 
-  const handleDeleteConfirm = () => {
-    if (!deleteTarget) return;
-    if (deleteTarget.type === "rev") setRevenues(prev => prev.filter(r => r.id !== deleteTarget.id));
-    else setCosts(prev => prev.filter(c => c.id !== deleteTarget.id));
-    setDeleteTarget(null);
-  };
+  if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Carregando...</p></div>;
 
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1><p className="text-sm text-muted-foreground mt-1">Receitas, custos operacionais e margem real</p></div>
-        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <div><h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1><p className="text-sm text-muted-foreground mt-1">Receitas, custos e margem real</p></div>
+        <div className="flex items-center gap-2">
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lançamento</Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: "MRR", value: mrrTotal, icon: Repeat, color: "primary" },
-          { label: "Setup Fees", value: setupTotal, icon: Zap, color: "info" },
-          { label: "One-offs", value: oneOffTotal, icon: DollarSign, color: "warning" },
-          { label: "TCV (Anual)", value: tcv, icon: Receipt, color: "muted-foreground" },
-          { label: "Custos", value: totalCustos, icon: ArrowDownRight, color: "destructive" },
-          { label: "Margem", value: margem, icon: TrendingUp, color: "success", isSuffix: "%" },
-        ].map((m) => (
+          { label: "Receita Total", value: totalReceita, icon: DollarSign, color: "primary" },
+          { label: "Despesa Total", value: totalDespesa, icon: ArrowDownRight, color: "destructive" },
+          { label: "Lucro", value: lucro, icon: TrendingUp, color: "success" },
+          { label: "Margem", value: margem, icon: TrendingUp, color: "success", suffix: "%" },
+        ].map(m => (
           <div key={m.label} className="metric-card">
-            <div className={`h-7 w-7 rounded-lg bg-${m.color}/10 flex items-center justify-center mb-1.5`}><m.icon className={`h-3.5 w-3.5 text-${m.color}`} /></div>
-            <p className="text-xl font-bold">{(m as any).isSuffix ? `${m.value}%` : `R$ ${m.value.toLocaleString()}`}</p>
+            <m.icon className={`h-4 w-4 text-${m.color} mb-1`} />
+            <p className="text-xl font-bold">{m.suffix ? `${m.value}%` : `R$ ${m.value.toLocaleString()}`}</p>
             <p className="text-[10px] text-muted-foreground mt-0.5">{m.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="metric-card lg:col-span-2">
-          <h3 className="text-sm font-semibold mb-4">Receita vs Custos (6 meses)</h3>
-          <div className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} className="text-muted-foreground" />
-                <YAxis tick={{ fontSize: 12 }} className="text-muted-foreground" tickFormatter={(v) => `${v / 1000}k`} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} formatter={(value: number) => [`R$ ${value.toLocaleString()}`, ""]} />
-                <Bar dataKey="receita" fill="hsl(17, 100%, 58%)" radius={[4, 4, 0, 0]} name="Receita" />
-                <Bar dataKey="custos" fill="hsl(0, 72%, 51%)" radius={[4, 4, 0, 0]} name="Custos" opacity={0.7} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="metric-card">
-          <h3 className="text-sm font-semibold mb-4">Por Nicho</h3>
-          <div className="h-[140px]">
-            <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={nicheData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" paddingAngle={2}>{nicheData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}</Pie><Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} /></PieChart></ResponsiveContainer>
-          </div>
-          <div className="space-y-1.5 mt-2">{nicheData.map((n, i) => <div key={n.name} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ backgroundColor: COLORS[i] }} /><span className="text-muted-foreground">{n.name}</span></div><span className="font-medium">{n.profit}%</span></div>)}</div>
-        </div>
-      </div>
-
-      {/* Margem por Cliente with LTV */}
       <div className="metric-card">
-        <h3 className="text-sm font-semibold mb-4">Margem Real por Cliente</h3>
-        <table className="w-full"><thead><tr className="border-b border-border"><th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Receita</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Custos</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Lucro</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Margem</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">LTV Estimado</th></tr></thead>
-          <tbody>{clientMargins.map(c => <tr key={c.client} className="border-b border-border last:border-0"><td className="py-2 text-sm font-medium">{c.client}</td><td className="py-2 text-right text-sm">R$ {c.revenue.toLocaleString()}</td><td className="py-2 text-right text-sm text-destructive">R$ {c.costs.toLocaleString()}</td><td className="py-2 text-right text-sm font-semibold text-success">R$ {c.profit.toLocaleString()}</td><td className="py-2 text-right"><span className={`text-xs px-2 py-0.5 rounded-full ${c.margin >= 65 ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>{c.margin}%</span></td><td className="py-2 text-right text-sm font-medium text-primary">R$ {c.ltv.toLocaleString()}</td></tr>)}</tbody>
+        <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Lançamentos</h3></div>
+        <ContextFilters search={search} onSearchChange={setSearch} searchPlaceholder="Buscar..."
+          filterGroups={[{ key: "type", label: "Tipo", options: [
+            { label: "Todos", value: "all" }, { label: "Receita", value: "receita" }, { label: "Despesa", value: "despesa" },
+          ]}]}
+          activeFilters={{ type: typeFilter }}
+          onFilterChange={(_, v) => setTypeFilter(v)}
+        />
+        <table className="w-full mt-4">
+          <thead><tr className="border-b border-border">
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Descrição</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Categoria</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Status</th>
+            <th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th>
+            <th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th>
+          </tr></thead>
+          <tbody>
+            {filtered.map((r: any) => (
+              <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <td className="py-2 text-sm">{r.description || "—"}</td>
+                <td className="py-2 text-sm text-muted-foreground">{r.clients?.name || "—"}</td>
+                <td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "receita" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{r.type === "receita" ? "Receita" : "Despesa"}</span></td>
+                <td className="py-2 text-xs text-muted-foreground">{r.category || "—"}</td>
+                <td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.status === "pago" ? "bg-success/10 text-success" : r.status === "atrasado" ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"}`}>{r.status === "pago" ? "Pago" : r.status === "atrasado" ? "Atrasado" : "Pendente"}</span></td>
+                <td className={`py-2 text-right text-sm font-medium ${r.type === "receita" ? "text-success" : "text-destructive"}`}>{r.type === "despesa" ? "-" : ""}R$ {Number(r.amount).toLocaleString()}</td>
+                <td className="py-2 text-right"><div className="flex justify-end gap-1">
+                  <button onClick={() => setEditRecord({ ...r })} className="p-1 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                  <button onClick={() => setDeleteId(r.id)} className="p-1 rounded hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
+                </div></td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado</td></tr>}
+          </tbody>
         </table>
       </div>
 
-      {/* Revenue Entries with filters */}
-      <div className="metric-card">
-        <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Lançamentos de Receita</h3><Button size="sm" variant="outline" onClick={() => setShowAddRev(true)}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar</Button></div>
-        <div className="mb-4">
-          <ContextFilters
-            search={search}
-            onSearchChange={setSearch}
-            searchPlaceholder="Buscar por cliente ou descrição..."
-            filterGroups={[{
-              key: "type", label: "Tipo",
-              options: [
-                { label: "Todos", value: "all" },
-                { label: "MRR", value: "mrr" },
-                { label: "Setup", value: "setup" },
-                { label: "One-off", value: "oneoff" },
-              ],
-            }]}
-            activeFilters={{ type: typeFilter }}
-            onFilterChange={(_, v) => setTypeFilter(v)}
-          />
-        </div>
-        <table className="w-full"><thead><tr className="border-b border-border"><th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th><th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th><th className="text-left text-xs font-medium text-muted-foreground pb-2">Descrição</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th></tr></thead>
-          <tbody>{filteredRevenues.map(r => <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30"><td className="py-2 text-sm">{r.client}</td><td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "mrr" ? "bg-primary/10 text-primary" : r.type === "setup" ? "bg-info/10 text-info" : "bg-warning/10 text-warning"}`}>{r.type.toUpperCase()}</span></td><td className="py-2 text-sm text-muted-foreground">{r.description}</td><td className="py-2 text-right text-sm font-medium">R$ {r.value.toLocaleString()}</td><td className="py-2 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditRev({ ...r })} className="p-1 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button><button onClick={() => setDeleteTarget({ type: "rev", id: r.id })} className="p-1 rounded hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button></div></td></tr>)}</tbody>
-        </table>
-      </div>
+      <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Lançamento</DialogTitle></DialogHeader>
+        <RecordForm data={form} onChange={setForm} />
+        <DialogFooter><Button onClick={() => { if (form.amount > 0) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
+      </DialogContent></Dialog>
 
-      {/* Cost Entries */}
-      <div className="metric-card">
-        <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Custos Operacionais</h3><Button size="sm" variant="outline" onClick={() => setShowAddCost(true)}><Plus className="h-3.5 w-3.5 mr-1" />Adicionar</Button></div>
-        <table className="w-full"><thead><tr className="border-b border-border"><th className="text-left text-xs font-medium text-muted-foreground pb-2">Item</th><th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th><th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th></tr></thead>
-          <tbody>{costs.map(c => <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30"><td className="py-2 text-sm">{c.name}</td><td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${c.type === "fixo" ? "bg-info/10 text-info" : "bg-warning/10 text-warning"}`}>{c.type === "fixo" ? "Fixo" : "Variável"}</span></td><td className="py-2 text-right text-sm font-medium">R$ {c.value.toLocaleString()}</td><td className="py-2 text-right"><div className="flex justify-end gap-1"><button onClick={() => setEditCost({ ...c })} className="p-1 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button><button onClick={() => setDeleteTarget({ type: "cost", id: c.id })} className="p-1 rounded hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button></div></td></tr>)}</tbody>
-        </table>
-      </div>
+      <Dialog open={!!editRecord} onOpenChange={() => setEditRecord(null)}><DialogContent><DialogHeader><DialogTitle>Editar Lançamento</DialogTitle></DialogHeader>
+        {editRecord && <RecordForm data={editRecord} onChange={setEditRecord} />}
+        <DialogFooter><Button onClick={() => { if (editRecord) updateMut.mutate(editRecord); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
+      </DialogContent></Dialog>
 
-      {/* Dialogs */}
-      <Dialog open={showAddRev} onOpenChange={setShowAddRev}>
-        <DialogContent><DialogHeader><DialogTitle>Nova Receita</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Cliente" value={newRev.client} onChange={e => setNewRev(p => ({ ...p, client: e.target.value }))} />
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newRev.type} onChange={e => setNewRev(p => ({ ...p, type: e.target.value as any }))}><option value="mrr">MRR</option><option value="setup">Setup</option><option value="oneoff">One-off</option></select>
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={newRev.description} onChange={e => setNewRev(p => ({ ...p, description: e.target.value }))} />
-            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Valor (R$)" value={newRev.value || ""} onChange={e => setNewRev(p => ({ ...p, value: Number(e.target.value) }))} />
-          </div>
-          <DialogFooter><Button onClick={() => { if (newRev.client) { setRevenues(p => [...p, { ...newRev, id: Date.now().toString() }]); setNewRev({ client: "", type: "mrr", value: 0, description: "" }); setShowAddRev(false); } }}>Adicionar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!editRev} onOpenChange={() => setEditRev(null)}>
-        <DialogContent><DialogHeader><DialogTitle>Editar Receita</DialogTitle></DialogHeader>
-          {editRev && <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editRev.client} onChange={e => setEditRev({ ...editRev, client: e.target.value })} />
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editRev.type} onChange={e => setEditRev({ ...editRev, type: e.target.value as any })}><option value="mrr">MRR</option><option value="setup">Setup</option><option value="oneoff">One-off</option></select>
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editRev.description} onChange={e => setEditRev({ ...editRev, description: e.target.value })} />
-            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editRev.value} onChange={e => setEditRev({ ...editRev, value: Number(e.target.value) })} />
-          </div>}
-          <DialogFooter><Button onClick={() => { if (editRev) { setRevenues(p => p.map(r => r.id === editRev.id ? editRev : r)); setEditRev(null); } }}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showAddCost} onOpenChange={setShowAddCost}>
-        <DialogContent><DialogHeader><DialogTitle>Novo Custo</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Nome do custo" value={newCost.name} onChange={e => setNewCost(p => ({ ...p, name: e.target.value }))} />
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newCost.type} onChange={e => setNewCost(p => ({ ...p, type: e.target.value as any }))}><option value="fixo">Fixo</option><option value="variavel">Variável</option></select>
-            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Valor (R$)" value={newCost.value || ""} onChange={e => setNewCost(p => ({ ...p, value: Number(e.target.value) }))} />
-          </div>
-          <DialogFooter><Button onClick={() => { if (newCost.name) { setCosts(p => [...p, { ...newCost, id: Date.now().toString() }]); setNewCost({ name: "", type: "fixo", value: 0 }); setShowAddCost(false); } }}>Adicionar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!editCost} onOpenChange={() => setEditCost(null)}>
-        <DialogContent><DialogHeader><DialogTitle>Editar Custo</DialogTitle></DialogHeader>
-          {editCost && <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editCost.name} onChange={e => setEditCost({ ...editCost, name: e.target.value })} />
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editCost.type} onChange={e => setEditCost({ ...editCost, type: e.target.value as any })}><option value="fixo">Fixo</option><option value="variavel">Variável</option></select>
-            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editCost.value} onChange={e => setEditCost({ ...editCost, value: Number(e.target.value) })} />
-          </div>}
-          <DialogFooter><Button onClick={() => { if (editCost) { setCosts(p => p.map(c => c.id === editCost.id ? editCost : c)); setEditCost(null); } }}>Salvar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir lançamento?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir lançamento?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => { if (deleteId) deleteMut.mutate(deleteId); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter>
+      </AlertDialogContent></AlertDialog>
     </div>
   );
 };

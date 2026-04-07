@@ -1,30 +1,12 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, Package, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { ContextFilters } from "@/components/ContextFilters";
-
-interface Product {
-  id: string;
-  name: string;
-  category: "trafego" | "automacao" | "lp" | "consultoria";
-  basePrice: number;
-  minPrice: number;
-  maxPrice: number;
-  type: "recorrente" | "pontual";
-  description: string;
-}
-
-const initialProducts: Product[] = [
-  { id: "1", name: "Gestão Meta Ads", category: "trafego", basePrice: 3500, minPrice: 2500, maxPrice: 4500, type: "recorrente", description: "Gestão completa de campanhas Meta Ads com relatórios semanais" },
-  { id: "2", name: "Gestão Google Ads", category: "trafego", basePrice: 4000, minPrice: 3000, maxPrice: 5000, type: "recorrente", description: "Campanhas de pesquisa, display e YouTube" },
-  { id: "3", name: "Landing Page", category: "lp", basePrice: 1500, minPrice: 1000, maxPrice: 2500, type: "pontual", description: "Página de alta conversão com copywriting e design" },
-  { id: "4", name: "Setup CRM + Automação", category: "automacao", basePrice: 5000, minPrice: 4000, maxPrice: 7000, type: "pontual", description: "Implementação completa de CRM com fluxos automatizados" },
-  { id: "5", name: "Chatbot IA (N8N + GPT)", category: "automacao", basePrice: 6000, minPrice: 5000, maxPrice: 8000, type: "recorrente", description: "Chatbot inteligente com integração WhatsApp" },
-  { id: "6", name: "Pacote Completo (Tráfego + LP)", category: "trafego", basePrice: 5500, minPrice: 4500, maxPrice: 7000, type: "recorrente", description: "Gestão de tráfego com landing pages inclusas" },
-  { id: "7", name: "Consultoria Estratégica", category: "consultoria", basePrice: 2000, minPrice: 1500, maxPrice: 3500, type: "pontual", description: "Sessão de consultoria com análise de funil e recomendações" },
-];
+import { toast } from "sonner";
 
 const categoryConfig: Record<string, { label: string; className: string }> = {
   trafego: { label: "Tráfego", className: "bg-primary/10 text-primary" },
@@ -34,45 +16,82 @@ const categoryConfig: Record<string, { label: string; className: string }> = {
 };
 
 const Produtos = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [editProduct, setEditProduct] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [newProduct, setNewProduct] = useState<Omit<Product, "id">>({ name: "", category: "trafego", basePrice: 0, minPrice: 0, maxPrice: 0, type: "recorrente", description: "" });
+  const [form, setForm] = useState({ name: "", description: "", category: "trafego", min_price: 0, max_price: 0, recurrence: "mensal" });
 
-  const filtered = products.filter(p => {
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ["products"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const createMut = useMutation({
+    mutationFn: async (p: typeof form) => {
+      const { error } = await supabase.from("products").insert(p);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); setShowAdd(false); setForm({ name: "", description: "", category: "trafego", min_price: 0, max_price: 0, recurrence: "mensal" }); toast.success("Produto criado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: async (p: any) => {
+      const { id, created_at, updated_at, ...rest } = p;
+      const { error } = await supabase.from("products").update(rest).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); setEditProduct(null); toast.success("Produto atualizado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); setDeleteId(null); toast.success("Produto excluído"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const filtered = products.filter((p: any) => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = catFilter === "all" || p.category === catFilter;
     return matchSearch && matchCat;
   });
 
-  const ProductForm = ({ product, onChange }: { product: Omit<Product, "id">; onChange: (p: any) => void }) => (
+  const ProductForm = ({ product, onChange }: { product: any; onChange: (p: any) => void }) => (
     <div className="space-y-3">
       <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={product.name} onChange={e => onChange({ ...product, name: e.target.value })} />
-      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={product.description} onChange={e => onChange({ ...product, description: e.target.value })} />
-      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.category} onChange={e => onChange({ ...product, category: e.target.value })}>
+      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={product.description || ""} onChange={e => onChange({ ...product, description: e.target.value })} />
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.category || "trafego"} onChange={e => onChange({ ...product, category: e.target.value })}>
         <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
       </select>
-      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.type} onChange={e => onChange({ ...product, type: e.target.value })}>
-        <option value="recorrente">Recorrente</option><option value="pontual">Pontual</option>
+      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.recurrence || "mensal"} onChange={e => onChange({ ...product, recurrence: e.target.value })}>
+        <option value="mensal">Recorrente (Mensal)</option><option value="pontual">Pontual</option>
       </select>
-      <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Base (R$)" value={product.basePrice || ""} onChange={e => onChange({ ...product, basePrice: Number(e.target.value) })} />
       <div className="grid grid-cols-2 gap-3">
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Mínimo (R$)" value={product.minPrice || ""} onChange={e => onChange({ ...product, minPrice: Number(e.target.value) })} />
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Máximo (R$)" value={product.maxPrice || ""} onChange={e => onChange({ ...product, maxPrice: Number(e.target.value) })} />
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Mínimo (R$)" value={product.min_price || ""} onChange={e => onChange({ ...product, min_price: Number(e.target.value) })} />
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Máximo (R$)" value={product.max_price || ""} onChange={e => onChange({ ...product, max_price: Number(e.target.value) })} />
       </div>
-      <p className="text-[10px] text-muted-foreground">Range de negociação: vendedor pode escolher valor entre mín e máx</p>
     </div>
   );
+
+  if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Carregando...</p></div>;
 
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Catálogo de Produtos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{products.length} produtos/pacotes cadastrados</p>
+          <p className="text-sm text-muted-foreground mt-1">{products.length} produtos cadastrados</p>
         </div>
         <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Produto</Button>
       </div>
@@ -88,14 +107,12 @@ const Produtos = () => {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(p => {
-          const cat = categoryConfig[p.category];
+        {filtered.map((p: any) => {
+          const cat = categoryConfig[p.category || "trafego"] || categoryConfig.trafego;
           return (
             <div key={p.id} className="metric-card">
               <div className="flex items-start justify-between mb-3">
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Package className="h-4 w-4 text-primary" />
-                </div>
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center"><Package className="h-4 w-4 text-primary" /></div>
                 <div className="flex gap-1">
                   <button onClick={() => setEditProduct({ ...p })} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => setDeleteId(p.id)} className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -106,40 +123,36 @@ const Produtos = () => {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex gap-2">
                   <span className={`text-[10px] px-2 py-0.5 rounded-full ${cat.className}`}>{cat.label}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.type === "recorrente" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
-                    {p.type === "recorrente" ? "Recorrente" : "Pontual"}
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${p.recurrence === "mensal" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {p.recurrence === "mensal" ? "Recorrente" : "Pontual"}
                   </span>
                 </div>
-                <span className="text-sm font-bold">R$ {p.basePrice.toLocaleString()}</span>
               </div>
               <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                Range: R$ {p.minPrice.toLocaleString()} — R$ {p.maxPrice.toLocaleString()}
+                Range: R$ {(p.min_price || 0).toLocaleString()} — R$ {(p.max_price || 0).toLocaleString()}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Add */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent><DialogHeader><DialogTitle>Novo Produto</DialogTitle></DialogHeader>
-          <ProductForm product={newProduct} onChange={setNewProduct} />
-          <DialogFooter><Button onClick={() => { if (newProduct.name) { setProducts(prev => [...prev, { ...newProduct, id: Date.now().toString() }]); setNewProduct({ name: "", category: "trafego", basePrice: 0, minPrice: 0, maxPrice: 0, type: "recorrente", description: "" }); setShowAdd(false); } }}>Adicionar</Button></DialogFooter>
+          <ProductForm product={form} onChange={setForm} />
+          <DialogFooter><Button onClick={() => { if (form.name) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit */}
       <Dialog open={!!editProduct} onOpenChange={() => setEditProduct(null)}>
         <DialogContent><DialogHeader><DialogTitle>Editar Produto</DialogTitle></DialogHeader>
           {editProduct && <ProductForm product={editProduct} onChange={setEditProduct} />}
-          <DialogFooter><Button onClick={() => { if (editProduct) { setProducts(p => p.map(pr => pr.id === editProduct.id ? editProduct : pr)); setEditProduct(null); } }}>Salvar</Button></DialogFooter>
+          <DialogFooter><Button onClick={() => { if (editProduct) updateMut.mutate(editProduct); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir produto?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => { setProducts(p => p.filter(pr => pr.id !== deleteId)); setDeleteId(null); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter>
+          <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => { if (deleteId) deleteMut.mutate(deleteId); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
