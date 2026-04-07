@@ -131,7 +131,7 @@ const CRM = () => {
       </div>
 
       {/* Lead Quality Chart (Admin only) */}
-      {isAdmin && lossBreakdown.length > 0 && (
+      {showChart && lossBreakdown.length > 0 && (
         <div className="metric-card">
           <h3 className="text-sm font-semibold mb-3">Qualidade de Leads — Motivos de Perda</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
