@@ -196,6 +196,28 @@ const Financeiro = () => {
         <DialogFooter><Button onClick={() => { if (editRecord) updateMut.mutate(editRecord); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
+      {/* MRR Dialog */}
+      <Dialog open={showMrr} onOpenChange={setShowMrr}><DialogContent><DialogHeader><DialogTitle>Cadastrar MRR (Receita Recorrente)</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Cliente</label>
+            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={mrrForm.client_id} onChange={e => setMrrForm(p => ({ ...p, client_id: e.target.value }))}>
+              <option value="">Selecione o cliente</option>
+              {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Valor MRR (R$)</label>
+            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Ex: 2500" value={mrrForm.mrr_value || ""} onChange={e => setMrrForm(p => ({ ...p, mrr_value: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Descrição</label>
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="MRR - Gestão de Tráfego" value={mrrForm.description} onChange={e => setMrrForm(p => ({ ...p, description: e.target.value }))} />
+          </div>
+        </div>
+        <DialogFooter><Button onClick={() => { if (mrrForm.client_id && mrrForm.mrr_value > 0) createMrrMut.mutate(mrrForm); }} disabled={createMrrMut.isPending}>{createMrrMut.isPending ? "Cadastrando..." : "Cadastrar MRR"}</Button></DialogFooter>
+      </DialogContent></Dialog>
+
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir lançamento?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
         <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => { if (deleteId) deleteMut.mutate(deleteId); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction></AlertDialogFooter>
       </AlertDialogContent></AlertDialog>
