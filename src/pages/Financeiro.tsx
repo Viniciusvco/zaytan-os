@@ -224,6 +224,8 @@ const Financeiro = () => {
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Tipo</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Categoria</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Início Contrato</th>
+            <th className="text-left text-xs font-medium text-muted-foreground pb-2">Dia Pgto</th>
             <th className="text-left text-xs font-medium text-muted-foreground pb-2">Pago?</th>
             <th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th>
             <th className="text-right text-xs font-medium text-muted-foreground pb-2">Ações</th>
@@ -235,6 +237,8 @@ const Financeiro = () => {
                 <td className="py-2 text-sm text-muted-foreground">{r.clients?.name || "—"}</td>
                 <td className="py-2"><span className={`text-[10px] px-2 py-0.5 rounded-full ${r.type === "receita" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{r.type === "receita" ? "Receita" : "Despesa"}</span></td>
                 <td className="py-2 text-xs text-muted-foreground">{r.category || "—"}</td>
+                <td className="py-2 text-xs text-muted-foreground">{r.mrr_start_date ? new Date(r.mrr_start_date + "T12:00:00").toLocaleDateString("pt-BR") : "—"}</td>
+                <td className="py-2 text-xs text-muted-foreground">{r.due_day ? `Dia ${r.due_day}` : "—"}</td>
                 <td className="py-2">
                   <Switch
                     checked={r.status === "pago"}
@@ -249,7 +253,7 @@ const Financeiro = () => {
                 </div></td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado</td></tr>}
           </tbody>
         </table>
       </div>
