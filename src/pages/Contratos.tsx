@@ -310,6 +310,7 @@ const Contratos = () => {
         )}
       </div>
 
+      <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Contrato</DialogTitle></DialogHeader>
         <ContractForm data={form} onChange={setForm} />
         <DialogFooter><Button onClick={() => { if (form.client_id && form.title) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Criar Contrato"}</Button></DialogFooter>
       </DialogContent></Dialog>
