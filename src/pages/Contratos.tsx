@@ -13,6 +13,18 @@ import { Progress } from "@/components/ui/progress";
 
 type ContractStatus = "rascunho" | "ativo" | "cancelado" | "aguardando";
 
+type ContractFormData = {
+  client_id: string;
+  title: string;
+  start_date: string;
+  end_date: string;
+  setup_value: number | "";
+  mrr_value: number | "";
+  weekly_investment: number | "";
+  status: ContractStatus;
+  notes: string;
+};
+
 const statusConfig: Record<ContractStatus, { label: string; icon: typeof CheckCircle2; className: string }> = {
   ativo: { label: "Ativo", icon: CheckCircle2, className: "bg-success/10 text-success" },
   rascunho: { label: "Rascunho", icon: FileQuestion, className: "bg-muted text-muted-foreground" },
@@ -25,7 +37,53 @@ function daysUntilDate(dateStr: string | null): number {
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-const emptyForm = { client_id: "", title: "", start_date: new Date().toISOString().split("T")[0], end_date: "", setup_value: 0, mrr_value: 0, weekly_investment: 0, status: "rascunho" as ContractStatus, notes: "" };
+const emptyForm: ContractFormData = {
+  client_id: "",
+  title: "",
+  start_date: new Date().toISOString().split("T")[0],
+  end_date: "",
+  setup_value: 0,
+  mrr_value: 0,
+  weekly_investment: 0,
+  status: "rascunho",
+  notes: "",
+};
+
+const ContractForm = ({
+  data,
+  onChange,
+  clients,
+}: {
+  data: ContractFormData;
+  onChange: (d: ContractFormData) => void;
+  clients: Array<{ id: string; name: string }>;
+}) => (
+  <div className="space-y-3">
+    <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.client_id} onChange={(e) => onChange({ ...data, client_id: e.target.value })}>
+      <option value="">Selecione o cliente</option>
+      {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+    </select>
+    <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Título do contrato" value={data.title} onChange={(e) => onChange({ ...data, title: e.target.value })} />
+    <div className="grid grid-cols-2 gap-3">
+      <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Data de Início</label>
+        <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.start_date} onChange={(e) => onChange({ ...data, start_date: e.target.value })} /></div>
+      <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Data de Término</label>
+        <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.end_date || ""} onChange={(e) => onChange({ ...data, end_date: e.target.value })} /></div>
+    </div>
+    <div className="grid grid-cols-3 gap-3">
+      <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Setup (R$)</label>
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.setup_value} onChange={(e) => onChange({ ...data, setup_value: e.target.value === "" ? "" : Number(e.target.value) })} /></div>
+      <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">MRR (R$)</label>
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.mrr_value} onChange={(e) => onChange({ ...data, mrr_value: e.target.value === "" ? "" : Number(e.target.value) })} /></div>
+      <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Invest. Semanal (R$)</label>
+        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.weekly_investment} onChange={(e) => onChange({ ...data, weekly_investment: e.target.value === "" ? "" : Number(e.target.value) })} /></div>
+    </div>
+    <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.status} onChange={(e) => onChange({ ...data, status: e.target.value as ContractStatus })}>
+      <option value="rascunho">Rascunho</option><option value="aguardando">Aguardando Assinatura</option><option value="ativo">Ativo</option><option value="cancelado">Cancelado</option>
+    </select>
+    <textarea className="w-full h-16 px-3 py-2 rounded-lg bg-muted border-0 text-sm focus:outline-none resize-none" placeholder="Observações..." value={data.notes || ""} onChange={(e) => onChange({ ...data, notes: e.target.value })} />
+  </div>
+);
 
 const Contratos = () => {
   const qc = useQueryClient();
@@ -56,8 +114,13 @@ const Contratos = () => {
   });
 
   const createMut = useMutation({
-    mutationFn: async (p: typeof emptyForm) => {
-      const payload: any = { ...p };
+    mutationFn: async (p: ContractFormData) => {
+      const payload: any = {
+        ...p,
+        setup_value: p.setup_value === "" ? 0 : p.setup_value,
+        mrr_value: p.mrr_value === "" ? 0 : p.mrr_value,
+        weekly_investment: p.weekly_investment === "" ? 0 : p.weekly_investment,
+      };
       if (!payload.end_date) delete payload.end_date;
       if (!payload.notes) delete payload.notes;
       const { error } = await supabase.from("contracts").insert(payload);
@@ -72,6 +135,9 @@ const Contratos = () => {
       const { id, created_at, updated_at, clients: _c, ...rest } = p;
       if (!rest.end_date) rest.end_date = null;
       if (!rest.notes) rest.notes = null;
+      rest.setup_value = rest.setup_value === "" ? 0 : rest.setup_value;
+      rest.mrr_value = rest.mrr_value === "" ? 0 : rest.mrr_value;
+      rest.weekly_investment = rest.weekly_investment === "" ? 0 : rest.weekly_investment;
       const { error } = await supabase.from("contracts").update(rest).eq("id", id);
       if (error) throw error;
     },
@@ -139,33 +205,6 @@ const Contratos = () => {
     }
   };
 
-  const ContractForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
-    <div className="space-y-3">
-      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.client_id} onChange={e => onChange({ ...data, client_id: e.target.value })}>
-        <option value="">Selecione o cliente</option>
-        {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-      </select>
-      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Título do contrato" value={data.title} onChange={e => onChange({ ...data, title: e.target.value })} />
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Data de Início</label>
-          <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.start_date} onChange={e => onChange({ ...data, start_date: e.target.value })} /></div>
-        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Data de Término</label>
-          <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.end_date || ""} onChange={e => onChange({ ...data, end_date: e.target.value })} /></div>
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Setup (R$)</label>
-          <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.setup_value || ""} onChange={e => onChange({ ...data, setup_value: Number(e.target.value) })} onFocus={e => e.target.select()} /></div>
-        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">MRR (R$)</label>
-          <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.mrr_value || ""} onChange={e => onChange({ ...data, mrr_value: Number(e.target.value) })} onFocus={e => e.target.select()} /></div>
-        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Invest. Semanal (R$)</label>
-          <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.weekly_investment || ""} onChange={e => onChange({ ...data, weekly_investment: Number(e.target.value) })} onFocus={e => e.target.select()} /></div>
-      </div>
-      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.status} onChange={e => onChange({ ...data, status: e.target.value })}>
-        <option value="rascunho">Rascunho</option><option value="aguardando">Aguardando Assinatura</option><option value="ativo">Ativo</option><option value="cancelado">Cancelado</option>
-      </select>
-      <textarea className="w-full h-16 px-3 py-2 rounded-lg bg-muted border-0 text-sm focus:outline-none resize-none" placeholder="Observações..." value={data.notes || ""} onChange={e => onChange({ ...data, notes: e.target.value })} />
-    </div>
-  );
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Carregando...</p></div>;
 
@@ -314,12 +353,12 @@ const Contratos = () => {
       </div>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Contrato</DialogTitle></DialogHeader>
-        <ContractForm data={form} onChange={setForm} />
+        <ContractForm data={form} onChange={setForm} clients={clients} />
         <DialogFooter><Button onClick={() => { if (form.client_id && form.title) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Criar Contrato"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
       <Dialog open={!!editContract} onOpenChange={() => setEditContract(null)}><DialogContent><DialogHeader><DialogTitle>Editar Contrato</DialogTitle></DialogHeader>
-        {editContract && <ContractForm data={editContract} onChange={setEditContract} />}
+        {editContract && <ContractForm data={editContract} onChange={setEditContract} clients={clients} />}
         <DialogFooter><Button onClick={() => { if (editContract) updateMut.mutate(editContract); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
