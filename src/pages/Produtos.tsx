@@ -143,7 +143,20 @@ const Produtos = () => {
 
       <Dialog open={!!editProduct} onOpenChange={() => setEditProduct(null)}>
         <DialogContent><DialogHeader><DialogTitle>Editar Produto</DialogTitle></DialogHeader>
-          {editProduct && <ProductForm product={editProduct} onChange={setEditProduct} />}
+          {editProduct && <div className="space-y-3">
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={editProduct.name} onChange={e => setEditProduct((p: any) => ({ ...p, name: e.target.value }))} />
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={editProduct.description || ""} onChange={e => setEditProduct((p: any) => ({ ...p, description: e.target.value }))} />
+            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editProduct.category || "trafego"} onChange={e => setEditProduct((p: any) => ({ ...p, category: e.target.value }))}>
+              <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
+            </select>
+            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={editProduct.recurrence || "mensal"} onChange={e => setEditProduct((p: any) => ({ ...p, recurrence: e.target.value }))}>
+              <option value="mensal">Recorrente (Mensal)</option><option value="pontual">Pontual</option>
+            </select>
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Mínimo (R$)" value={editProduct.min_price || ""} onChange={e => setEditProduct((p: any) => ({ ...p, min_price: Number(e.target.value) }))} />
+              <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Máximo (R$)" value={editProduct.max_price || ""} onChange={e => setEditProduct((p: any) => ({ ...p, max_price: Number(e.target.value) }))} />
+            </div>
+          </div>}
           <DialogFooter><Button onClick={() => { if (editProduct) updateMut.mutate(editProduct); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
