@@ -357,7 +357,13 @@ const CRM = () => {
                   {lead.phone && lead.phone !== lead.email && <p className="text-[10px] text-muted-foreground truncate"><Phone className="h-3 w-3 inline mr-1" />{lead.phone}</p>}
                   {lead.financing_type && <p className="text-[10px] text-muted-foreground"><Car className="h-3 w-3 inline mr-1" />{lead.financing_type.replace(/_/g, " ")}</p>}
                   {lead.installment_value && <p className="text-[10px] text-muted-foreground"><CreditCard className="h-3 w-3 inline mr-1" />{lead.installment_value.replace(/_/g, " ").replace(/r\$/i, "R$")}</p>}
-                  {lead.value > 0 && <p className="text-sm font-semibold">R$ {Number(lead.value).toLocaleString()}</p>}
+                  {lead.status === "fechado" && (
+                    <div className="flex items-center gap-1">
+                      <p className="text-sm font-semibold">R$ {Number(lead.value || 0).toLocaleString()}</p>
+                      <button onClick={e => { e.stopPropagation(); setEditValueTarget(lead); setEditValue(lead.value || 0); }} className="text-[9px] text-primary hover:underline">editar</button>
+                    </div>
+                  )}
+                  {lead.status !== "fechado" && lead.value > 0 && <p className="text-sm font-semibold">R$ {Number(lead.value).toLocaleString()}</p>}
                   {lead.seller_tag ? (
                     <span
                       className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary mt-1 inline-flex items-center gap-1 cursor-pointer hover:bg-primary/20"
