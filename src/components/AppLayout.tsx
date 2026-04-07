@@ -71,7 +71,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </select>
               )}
 
-              {role === "admin" && (
+              {isRealAdmin && (
                 <div className="relative">
                   <button onClick={() => setShowSimulator(!showSimulator)}
                     className="h-7 px-2 rounded-md bg-muted text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1">
