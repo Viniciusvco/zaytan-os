@@ -99,6 +99,46 @@ const Contratos = () => {
   const totalMRR = activeContracts.reduce((s: number, c: any) => s + Number(c.mrr_value || 0), 0);
   const expiringCount = activeContracts.filter((c: any) => { const d = daysUntilDate(c.end_date); return d <= 30 && d > 0; }).length;
 
+  // Lead distribution calculation (preview)
+  const investmentByClient: Record<string, { name: string; investment: number }> = {};
+  activeContracts.forEach((c: any) => {
+    const cid = c.client_id;
+    const name = c.clients?.name || "—";
+    if (!investmentByClient[cid]) investmentByClient[cid] = { name, investment: 0 };
+    investmentByClient[cid].investment += Number(c.weekly_investment || 0);
+  });
+  const totalWeeklyInvestment = Object.values(investmentByClient).reduce((s, c) => s + c.investment, 0);
+  const distributionPreview = Object.entries(investmentByClient)
+    .filter(([_, v]) => v.investment > 0)
+    .map(([cid, v]) => ({
+      client_id: cid,
+      name: v.name,
+      investment: v.investment,
+      percentage: totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0,
+    }));
+
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<any>(null);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("distribute-leads");
+      if (error) throw error;
+      setSyncResult(data);
+      if (data?.total_inserted > 0) {
+        toast.success(`${data.total_inserted} leads distribuídos com sucesso!`);
+      } else {
+        toast.info(data?.message || "Nenhum lead novo para distribuir");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao sincronizar leads");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const ContractForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
     <div className="space-y-3">
       <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.client_id} onChange={e => onChange({ ...data, client_id: e.target.value })}>
