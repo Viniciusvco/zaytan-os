@@ -459,6 +459,23 @@ const CRM = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Sale Value Dialog */}
+      <Dialog open={!!editValueTarget} onOpenChange={() => setEditValueTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Editar Valor da Venda</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <label className="text-xs font-medium text-muted-foreground">Valor da Venda (R$)</label>
+            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={editValue || ""} onChange={e => setEditValue(Number(e.target.value))} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditValueTarget(null)}>Cancelar</Button>
+            <Button onClick={() => { if (editValueTarget) updateSaleValue.mutate({ id: editValueTarget.id, value: editValue }); }} disabled={updateSaleValue.isPending}>
+              {updateSaleValue.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Lead Detail */}
       <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
         <DialogContent className="max-w-md">
