@@ -21,6 +21,7 @@ const Financeiro = () => {
   const [dateRange, setDateRange] = useState(useDefaultDateRange());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [showMrr, setShowMrr] = useState(false);
   const [editRecord, setEditRecord] = useState<any>(null);
@@ -90,7 +91,8 @@ const Financeiro = () => {
   const filtered = records.filter((r: any) => {
     const matchSearch = (r.description || "").toLowerCase().includes(search.toLowerCase()) || (r.clients?.name || "").toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === "all" || r.type === typeFilter;
-    return matchSearch && matchType;
+    const matchClient = clientFilter === "all" || r.client_id === clientFilter;
+    return matchSearch && matchType && matchClient;
   });
 
   const receitas = records.filter((r: any) => r.type === "receita");
@@ -150,11 +152,20 @@ const Financeiro = () => {
       <div className="metric-card">
         <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-semibold">Lançamentos</h3></div>
         <ContextFilters search={search} onSearchChange={setSearch} searchPlaceholder="Buscar..."
-          filterGroups={[{ key: "type", label: "Tipo", options: [
-            { label: "Todos", value: "all" }, { label: "Receita", value: "receita" }, { label: "Despesa", value: "despesa" },
-          ]}]}
-          activeFilters={{ type: typeFilter }}
-          onFilterChange={(_, v) => setTypeFilter(v)}
+          filterGroups={[
+            { key: "client", label: "Cliente", options: [
+              { label: "Todos", value: "all" },
+              ...clients.map((c: any) => ({ label: c.name, value: c.id })),
+            ]},
+            { key: "type", label: "Tipo", options: [
+              { label: "Todos", value: "all" }, { label: "Receita", value: "receita" }, { label: "Despesa", value: "despesa" },
+            ]},
+          ]}
+          activeFilters={{ type: typeFilter, client: clientFilter }}
+          onFilterChange={(key, v) => {
+            if (key === "type") setTypeFilter(v);
+            if (key === "client") setClientFilter(v);
+          }}
         />
         <table className="w-full mt-4">
           <thead><tr className="border-b border-border">

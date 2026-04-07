@@ -90,6 +90,7 @@ const Contratos = () => {
   const [dateRange, setDateRange] = useState(useDefaultDateRange());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [clientFilter, setClientFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
   const [editContract, setEditContract] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -158,7 +159,8 @@ const Contratos = () => {
     const clientName = c.clients?.name || "";
     const matchSearch = clientName.toLowerCase().includes(search.toLowerCase()) || c.title.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchClient = clientFilter === "all" || c.client_id === clientFilter;
+    return matchSearch && matchStatus && matchClient;
   });
 
   const activeContracts = contracts.filter((c: any) => c.status === "ativo");
@@ -226,13 +228,22 @@ const Contratos = () => {
       </div>
 
       <ContextFilters search={search} onSearchChange={setSearch} searchPlaceholder="Buscar contratos..."
-        filterGroups={[{ key: "status", label: "Status", options: [
-          { label: "Todos", value: "all" }, { label: "Ativo", value: "ativo" },
-          { label: "Rascunho", value: "rascunho" }, { label: "Aguardando", value: "aguardando" },
-          { label: "Cancelado", value: "cancelado" },
-        ]}]}
-        activeFilters={{ status: statusFilter }}
-        onFilterChange={(_, v) => setStatusFilter(v)}
+        filterGroups={[
+          { key: "client", label: "Cliente", options: [
+            { label: "Todos", value: "all" },
+            ...clients.map((c: any) => ({ label: c.name, value: c.id })),
+          ]},
+          { key: "status", label: "Status", options: [
+            { label: "Todos", value: "all" }, { label: "Ativo", value: "ativo" },
+            { label: "Rascunho", value: "rascunho" }, { label: "Aguardando", value: "aguardando" },
+            { label: "Cancelado", value: "cancelado" },
+          ]},
+        ]}
+        activeFilters={{ status: statusFilter, client: clientFilter }}
+        onFilterChange={(key, v) => {
+          if (key === "status") setStatusFilter(v);
+          if (key === "client") setClientFilter(v);
+        }}
       />
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
