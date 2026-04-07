@@ -22,9 +22,11 @@ const Financeiro = () => {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showMrr, setShowMrr] = useState(false);
   const [editRecord, setEditRecord] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [mrrForm, setMrrForm] = useState(emptyMrrForm);
 
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["financial_records"],
