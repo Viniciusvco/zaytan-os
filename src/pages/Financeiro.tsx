@@ -259,12 +259,12 @@ const Financeiro = () => {
       </div>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Lançamento</DialogTitle></DialogHeader>
-        <RecordForm data={form} onChange={setForm} />
+        {renderFormFields(form, setForm)}
         <DialogFooter><Button onClick={() => { if (form.amount > 0) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
       <Dialog open={!!editRecord} onOpenChange={() => setEditRecord(null)}><DialogContent><DialogHeader><DialogTitle>Editar Lançamento</DialogTitle></DialogHeader>
-        {editRecord && <RecordForm data={editRecord} onChange={setEditRecord} />}
+        {editRecord && renderFormFields(editRecord, setEditRecord)}
         <DialogFooter><Button onClick={() => { if (editRecord) updateMut.mutate(editRecord); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
