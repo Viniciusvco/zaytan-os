@@ -81,9 +81,11 @@ const Demandas = () => {
     // CS sees all
   }
 
-  const moveDemand = (id: string, newStatus: DemandStatus) => {
+  const moveDemand = useCallback((id: string, newStatus: DemandStatus) => {
     setDemands(prev => prev.map(d => d.id === id ? { ...d, status: newStatus } : d));
-  };
+  }, []);
+
+  const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<DemandStatus>(moveDemand);
 
   const handleAdd = () => {
     if (!newDemand.title.trim()) return;
