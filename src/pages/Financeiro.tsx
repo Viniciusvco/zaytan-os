@@ -56,6 +56,15 @@ const Financeiro = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const createMrrMut = useMutation({
+    mutationFn: async (p: typeof emptyMrrForm) => {
+      const payload: any = { amount: p.mrr_value, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: p.description || "MRR", category: "MRR", client_id: p.client_id || null };
+      const { error } = await supabase.from("financial_records").insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); setShowMrr(false); setMrrForm(emptyMrrForm); toast.success("MRR cadastrado"); },
+  });
+
   const updateMut = useMutation({
     mutationFn: async (p: any) => {
       const { id, created_at, updated_at, clients: _c, ...rest } = p;
