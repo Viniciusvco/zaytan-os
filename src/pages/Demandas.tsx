@@ -132,7 +132,13 @@ const Demandas = () => {
                 const isStale = daysOpen > 3 && demand.status !== "concluido";
 
                 return (
-                  <div key={demand.id} className={`kanban-card ${typeBorderColors[demand.type]} ${isStale ? "shadow-primary/10 shadow-md" : ""}`}>
+                  <div
+                    key={demand.id}
+                    draggable
+                    onDragStart={e => handleDragStart(e, demand.id)}
+                    onDragEnd={handleDragEnd}
+                    className={`kanban-card ${typeBorderColors[demand.type]} ${isStale ? "shadow-primary/10 shadow-md" : ""} cursor-grab active:cursor-grabbing ${draggedId === demand.id ? "opacity-40" : ""}`}
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${pri.className} inline-flex items-center gap-1`}>
                         <PriIcon className="h-3 w-3" /> {pri.label}
