@@ -7,7 +7,7 @@ import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from "recharts";
 import { toast } from "sonner";
 
 type LeadStatus = "novo" | "contatado" | "qualificado" | "fechado" | "perdido";
@@ -282,36 +282,41 @@ const CRM = () => {
         <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
       </div>
 
-      {/* Leads by seller bar chart */}
-      {leadsBySellerData.length > 0 && (
-        <div className="metric-card">
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4" />Leads por Vendedor</h3>
-          <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={leadsBySellerData} layout="vertical" margin={{ left: 0, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
-                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} name="Leads" />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* Charts side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Leads by seller - vertical bars */}
+        {leadsBySellerData.length > 0 && (
+          <div className="metric-card">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4" />Leads por Vendedor</h3>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={leadsBySellerData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={50} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Leads">
+                    <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "hsl(var(--foreground))" }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Loss reasons chart */}
-      {showChart && lossBreakdown.length > 0 && (
-        <div className="metric-card">
-          <h3 className="text-sm font-semibold mb-3">Motivos de Perda</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-            <div className="h-[180px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={lossBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>{lossBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} /></PieChart></ResponsiveContainer></div>
-            <div className="space-y-2">{lossBreakdown.map((d, i) => (
-              <div key={d.name} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} /><span className="text-muted-foreground">{d.name}</span></div><span className="font-bold">{d.value}</span></div>
-            ))}</div>
+        {/* Loss reasons pie */}
+        {showChart && lossBreakdown.length > 0 && (
+          <div className="metric-card">
+            <h3 className="text-sm font-semibold mb-3">Motivos de Perda</h3>
+            <div className="grid grid-cols-1 gap-4 items-center">
+              <div className="h-[160px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={lossBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>{lossBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} /></PieChart></ResponsiveContainer></div>
+              <div className="space-y-2">{lossBreakdown.map((d, i) => (
+                <div key={d.name} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} /><span className="text-muted-foreground">{d.name}</span></div><span className="font-bold">{d.value}</span></div>
+              ))}</div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto">
