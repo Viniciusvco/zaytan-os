@@ -1,8 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Shield, Users, User, Eye } from "lucide-react";
+import { Moon, Sun, Shield, Users, User, Eye, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRole, UserRole, ColaboradorSubtype } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ClientBanners } from "@/components/ClientBanners";
 
@@ -21,7 +22,9 @@ const subtypeLabels: Record<ColaboradorSubtype, string> = {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useState(false);
   const { role, setRole, colaboradorType, setColaboradorType, currentUser, trainingComplete } = useRole();
+  const { signOut, profile } = useAuth();
   const [showSimulator, setShowSimulator] = useState(false);
+  const isRealAdmin = profile?.role === "admin";
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -39,7 +42,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="h-12 flex items-center justify-between border-b border-border px-4 shrink-0">
             <SidebarTrigger />
             <div className="flex items-center gap-3">
-              {/* Role Switcher */}
+              {/* Role Switcher - only for real admins */}
+              {isRealAdmin && (
               <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
                 {(["admin", "colaborador", "cliente"] as UserRole[]).map((r) => {
                   const cfg = roleConfig[r];
@@ -53,6 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   );
                 })}
               </div>
+              )}
 
               {role === "colaborador" && (
                 <select
@@ -66,7 +71,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </select>
               )}
 
-              {role === "admin" && (
+              {isRealAdmin && (
                 <div className="relative">
                   <button onClick={() => setShowSimulator(!showSimulator)}
                     className="h-7 px-2 rounded-md bg-muted text-[10px] font-medium text-muted-foreground hover:text-foreground flex items-center gap-1">
@@ -102,6 +107,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="text-xs text-muted-foreground hidden sm:block">{currentUser.name}</span>
               <button onClick={() => setDark(!dark)} className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors">
                 {dark ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
+              </button>
+              <button onClick={signOut} className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors" title="Sair">
+                <LogOut className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
           </header>

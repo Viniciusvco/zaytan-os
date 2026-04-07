@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type UserRole = "admin" | "colaborador" | "cliente";
 export type ColaboradorSubtype = "gestor" | "designer" | "cs";
@@ -31,19 +32,12 @@ export const mockPayments: ClientPaymentInfo[] = [
   { clientName: "Farmácia Vida", status: "em_dia", dueDate: "2026-04-22", amount: 3000 },
 ];
 
-interface WhiteLabelConfig {
-  logo?: string;
-  primaryColor: string;
-  companyName: string;
-}
-
 interface RoleContextType {
   role: UserRole;
   setRole: (role: UserRole) => void;
   colaboradorType: ColaboradorSubtype;
   setColaboradorType: (type: ColaboradorSubtype) => void;
-  whiteLabel: WhiteLabelConfig;
-  setWhiteLabel: (config: WhiteLabelConfig) => void;
+  whiteLabel: { primaryColor: string; companyName: string };
   currentUser: { name: string; email: string };
   onboardingComplete: boolean;
   setOnboardingComplete: (v: boolean) => void;
@@ -57,29 +51,35 @@ interface RoleContextType {
 const RoleContext = createContext<RoleContextType | null>(null);
 
 export function RoleProvider({ children }: { children: ReactNode }) {
+  const { profile } = useAuth();
+  
+  // Sync role from real profile, fallback to admin for dev
   const [role, setRole] = useState<UserRole>("admin");
   const [colaboradorType, setColaboradorType] = useState<ColaboradorSubtype>("gestor");
-  const [whiteLabel, setWhiteLabel] = useState<WhiteLabelConfig>({
-    primaryColor: "#FF6E27",
-    companyName: "Zaytan",
-  });
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(true);
   const [feedbackPending, setFeedbackPending] = useState(true);
 
-  // Mock: current client is "Construtora Horizonte" which is inadimplente
+  useEffect(() => {
+    if (profile) {
+      setRole(profile.role);
+      if (profile.colaborador_type) {
+        setColaboradorType(profile.colaborador_type);
+      }
+    }
+  }, [profile]);
+
+  const whiteLabel = { primaryColor: "#FF6E27", companyName: "Zaytan" };
   const clientPaymentStatus: PaymentStatus = "inadimplente";
 
-  const currentUser = {
-    admin: { name: "Admin Zaytan", email: "admin@zaytan.com" },
-    colaborador: { name: "João Silva", email: "joao@zaytan.com" },
-    cliente: { name: "Escritório Silva", email: "contato@silva.adv.br" },
-  }[role];
+  const currentUser = profile
+    ? { name: profile.full_name, email: profile.email }
+    : { name: "Carregando...", email: "" };
 
   return (
     <RoleContext.Provider value={{
       role, setRole, colaboradorType, setColaboradorType,
-      whiteLabel, setWhiteLabel, currentUser,
+      whiteLabel, currentUser,
       onboardingComplete, setOnboardingComplete,
       trainingComplete, setTrainingComplete,
       clientPaymentStatus, feedbackPending, setFeedbackPending,
