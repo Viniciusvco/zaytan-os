@@ -157,6 +157,26 @@ const CRM = () => {
   const canAddLeads = isAdmin;
   const showChart = isAdmin;
 
+  const [syncing, setSyncing] = useState(false);
+  const syncLeads = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("distribute-leads");
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      const result = data as any;
+      if (result?.total_inserted > 0) {
+        toast.success(`${result.total_inserted} novos leads sincronizados!`);
+      } else {
+        toast.info(result?.message || "Nenhum lead novo encontrado.");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao sincronizar: " + (e.message || "Tente novamente"));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // CSV Export
   const exportCSV = () => {
     const headers = ["Nome", "Email", "Telefone", "Status", "Vendedor", "Tipo Financiamento", "Valor Parcelas", "Valor", "Data Entrada", "Origem"];
