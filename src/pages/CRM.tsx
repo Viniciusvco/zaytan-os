@@ -81,6 +81,14 @@ const CRM = () => {
     }
   };
 
+  const handleDnDMove = useCallback((id: string, newStage: LeadStage) => {
+    const lead = leads.find(l => l.id === id);
+    if (!lead || lead.stage === newStage) return;
+    moveLead(lead, newStage);
+  }, [leads]);
+
+  const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<LeadStage>(handleDnDMove);
+
   const addNote = () => {
     if (!selectedLead || !newNote.trim()) return;
     const updated = { ...selectedLead, notes: [...selectedLead.notes, newNote] };
