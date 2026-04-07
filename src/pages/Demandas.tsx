@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRole } from "@/contexts/RoleContext";
+import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, AlertTriangle, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
