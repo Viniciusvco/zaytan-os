@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
+import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, MessageSquare, Phone, Mail, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
