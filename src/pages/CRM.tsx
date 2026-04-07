@@ -1,9 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, MessageSquare, Phone, Mail, ExternalLink } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar } from "lucide-react";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,20 @@ const CRM = () => {
   const qc = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newNote, setNewNote] = useState("");
   const [newLead, setNewLead] = useState({ name: "", email: "", phone: "", source: "Meta Ads", value: 0, client_id: "" });
   const [moveTarget, setMoveTarget] = useState<{ lead: any; status: LeadStatus } | null>(null);
   const [saleValue, setSaleValue] = useState(0);
   const [lossReason, setLossReason] = useState<LossReason>("nao_atende");
+
+  // Filters
+  const [clientFilter, setClientFilter] = useState("all");
+  const [sellerFilter, setSellerFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  // Seller tag management
+  const [showTagDialog, setShowTagDialog] = useState<any>(null);
+  const [tagInput, setTagInput] = useState("");
 
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
@@ -52,6 +61,30 @@ const CRM = () => {
     },
   });
 
+  // Get unique seller tags
+  const sellerTags = useMemo(() => {
+    const tags = new Set<string>();
+    leads.forEach((l: any) => { if (l.seller_tag) tags.add(l.seller_tag); });
+    return Array.from(tags).sort();
+  }, [leads]);
+
+  // Filter leads
+  const filteredLeads = useMemo(() => {
+    return leads.filter((l: any) => {
+      if (clientFilter !== "all" && l.client_id !== clientFilter) return false;
+      if (sellerFilter !== "all" && l.seller_tag !== sellerFilter) return false;
+      if (dateFrom) {
+        const entryDate = l.lead_entry_date || l.created_at;
+        if (entryDate < dateFrom) return false;
+      }
+      if (dateTo) {
+        const entryDate = l.lead_entry_date || l.created_at;
+        if (entryDate > dateTo + "T23:59:59") return false;
+      }
+      return true;
+    });
+  }, [leads, clientFilter, sellerFilter, dateFrom, dateTo]);
+
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, value, loss_reason }: { id: string; status: LeadStatus; value?: number; loss_reason?: string }) => {
       const update: any = { status };
@@ -61,6 +94,15 @@ const CRM = () => {
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setMoveTarget(null); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const updateSellerTag = useMutation({
+    mutationFn: async ({ id, seller_tag }: { id: string; seller_tag: string }) => {
+      const { error } = await supabase.from("leads").update({ seller_tag } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setShowTagDialog(null); setTagInput(""); toast.success("Vendedor atualizado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -100,11 +142,11 @@ const CRM = () => {
 
   const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<LeadStatus>(handleDnDMove);
 
-  const totalValue = leads.filter((l: any) => l.status === "fechado").reduce((s: number, l: any) => s + Number(l.value || 0), 0);
-  const pipelineValue = leads.filter((l: any) => !["fechado", "perdido"].includes(l.status)).reduce((s: number, l: any) => s + Number(l.value || 0), 0);
-  const conversionRate = leads.length > 0 ? Math.round((leads.filter((l: any) => l.status === "fechado").length / leads.length) * 100) : 0;
+  const totalValue = filteredLeads.filter((l: any) => l.status === "fechado").reduce((s: number, l: any) => s + Number(l.value || 0), 0);
+  const pipelineValue = filteredLeads.filter((l: any) => !["fechado", "perdido"].includes(l.status)).reduce((s: number, l: any) => s + Number(l.value || 0), 0);
+  const conversionRate = filteredLeads.length > 0 ? Math.round((filteredLeads.filter((l: any) => l.status === "fechado").length / filteredLeads.length) * 100) : 0;
 
-  const lostLeads = leads.filter((l: any) => l.status === "perdido" && l.loss_reason);
+  const lostLeads = filteredLeads.filter((l: any) => l.status === "perdido" && l.loss_reason);
   const lossBreakdown = Object.entries(lossReasonLabels).map(([key, label]) => ({
     name: label,
     value: lostLeads.filter((l: any) => l.loss_reason === key).length,
@@ -115,14 +157,75 @@ const CRM = () => {
   const canAddLeads = isAdmin;
   const showChart = isAdmin;
 
+  // CSV Export
+  const exportCSV = () => {
+    const headers = ["Nome", "Email", "Telefone", "Status", "Vendedor", "Tipo Financiamento", "Valor Parcelas", "Valor", "Data Entrada", "Origem"];
+    const rows = filteredLeads.map((l: any) => [
+      l.name,
+      l.email || "",
+      l.phone || "",
+      l.status,
+      l.seller_tag || "",
+      l.financing_type || "",
+      l.installment_value || "",
+      l.value || "",
+      l.lead_entry_date ? new Date(l.lead_entry_date).toLocaleDateString("pt-BR") : new Date(l.created_at).toLocaleDateString("pt-BR"),
+      l.source || "",
+    ]);
+    const csv = [headers.join(","), ...rows.map(r => r.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `crm-leads-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exportado!");
+  };
+
+  // Format source for display (remove table names)
+  const formatSource = (source: string | null) => {
+    if (!source) return "—";
+    if (source === "leads_laportec_star5") return "Meta Ads";
+    return source;
+  };
+
   const content = (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{isClient ? "Meus Leads" : "CRM — Pipeline Geral"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{leads.length} leads no pipeline</p>
+          <p className="text-sm text-muted-foreground mt-1">{filteredLeads.length} leads no pipeline</p>
         </div>
-        {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
+        <div className="flex items-center gap-2">
+          {isClient && <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Exportar CSV</Button>}
+          {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        {isAdmin && (
+          <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
+            <option value="all">Todos os clientes</option>
+            {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
+        <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={sellerFilter} onChange={e => setSellerFilter(e.target.value)}>
+          <option value="all">Todos vendedores</option>
+          {sellerTags.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">De:</span>
+          <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground">Até:</span>
+          <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+        </div>
+        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo) && (
+          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); }}>Limpar filtros</button>
+        )}
       </div>
 
       <div className="grid gap-4 grid-cols-3">
@@ -150,17 +253,32 @@ const CRM = () => {
             onDragOver={e => handleDragOver(e, col.key)} onDragLeave={handleDragLeave} onDrop={e => handleDrop(e, col.key)}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold">{col.label}</h3>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>{leads.filter((l: any) => l.status === col.key).length}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>{filteredLeads.filter((l: any) => l.status === col.key).length}</span>
             </div>
             <div className="space-y-2">
-              {leads.filter((l: any) => l.status === col.key).map((lead: any) => (
+              {filteredLeads.filter((l: any) => l.status === col.key).map((lead: any) => (
                 <div key={lead.id} draggable onDragStart={e => handleDragStart(e, lead.id)} onDragEnd={handleDragEnd}
                   className={`kanban-card cursor-grab active:cursor-grabbing ${draggedId === lead.id ? "opacity-40" : ""}`}
                   onClick={() => setSelectedLead(lead)}>
                   <h4 className="text-sm font-medium mb-1">{lead.name}</h4>
-                  <p className="text-xs text-muted-foreground mb-1">{lead.source || "—"}</p>
-                  <p className="text-[10px] text-primary mb-1">{lead.clients?.name || ""}</p>
-                  <p className="text-sm font-semibold">R$ {Number(lead.value || 0).toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{formatSource(lead.source)}</p>
+                  {isAdmin && <p className="text-[10px] text-primary mb-1">{lead.clients?.name || ""}</p>}
+                  {lead.email && <p className="text-[10px] text-muted-foreground truncate"><Mail className="h-3 w-3 inline mr-1" />{lead.email}</p>}
+                  {lead.phone && lead.phone !== lead.email && <p className="text-[10px] text-muted-foreground truncate"><Phone className="h-3 w-3 inline mr-1" />{lead.phone}</p>}
+                  {lead.financing_type && <p className="text-[10px] text-muted-foreground"><Car className="h-3 w-3 inline mr-1" />{lead.financing_type.replace(/_/g, " ")}</p>}
+                  {lead.installment_value && <p className="text-[10px] text-muted-foreground"><CreditCard className="h-3 w-3 inline mr-1" />{lead.installment_value.replace(/_/g, " ").replace(/r\$/i, "R$")}</p>}
+                  {lead.value > 0 && <p className="text-sm font-semibold">R$ {Number(lead.value).toLocaleString()}</p>}
+                  {lead.seller_tag && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary mt-1 inline-flex items-center gap-1">
+                      <Tag className="h-2.5 w-2.5" />{lead.seller_tag}
+                    </span>
+                  )}
+                  {!lead.seller_tag && (
+                    <button onClick={e => { e.stopPropagation(); setShowTagDialog(lead); setTagInput(""); }}
+                      className="text-[9px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground mt-1 inline-flex items-center gap-1 hover:bg-primary/10 hover:text-primary">
+                      <Tag className="h-2.5 w-2.5" />+ Vendedor
+                    </button>
+                  )}
                   {lead.loss_reason && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive mt-1 inline-block">{lossReasonLabels[lead.loss_reason as LossReason] || lead.loss_reason}</span>}
                   <div className="flex gap-1 mt-2">
                     {col.key !== "novo" && col.key !== "perdido" && (
@@ -193,6 +311,33 @@ const CRM = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Seller Tag Dialog */}
+      <Dialog open={!!showTagDialog} onOpenChange={() => setShowTagDialog(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Atribuir Vendedor</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <label className="text-xs font-medium text-muted-foreground">Selecione ou crie uma tag de vendedor</label>
+            {sellerTags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {sellerTags.map(tag => (
+                  <button key={tag} onClick={() => { if (showTagDialog) updateSellerTag.mutate({ id: showTagDialog.id, seller_tag: tag }); }}
+                    className="text-xs px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input className="flex-1 h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="Nova tag de vendedor..." value={tagInput} onChange={e => setTagInput(e.target.value)} />
+              <Button size="sm" disabled={!tagInput.trim()} onClick={() => { if (showTagDialog && tagInput.trim()) updateSellerTag.mutate({ id: showTagDialog.id, seller_tag: tagInput.trim() }); }}>
+                Criar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Lead Detail */}
       <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
         <DialogContent className="max-w-md">
@@ -201,9 +346,19 @@ const CRM = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-sm"><Mail className="h-3.5 w-3.5 text-muted-foreground" />{selectedLead.email || "—"}</div>
               <div className="flex items-center gap-2 text-sm"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{selectedLead.phone || "—"}</div>
-              <div className="flex items-center gap-2 text-sm"><ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />{selectedLead.source || "—"} {selectedLead.clients?.name && `— ${selectedLead.clients.name}`}</div>
-              <p className="text-lg font-bold">R$ {Number(selectedLead.value || 0).toLocaleString()}</p>
-              {selectedLead.notes && <div className="bg-muted rounded p-2 text-xs">{selectedLead.notes}</div>}
+              <div className="flex items-center gap-2 text-sm"><ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />{formatSource(selectedLead.source)} {selectedLead.clients?.name && `— ${selectedLead.clients.name}`}</div>
+              {selectedLead.financing_type && <div className="flex items-center gap-2 text-sm"><Car className="h-3.5 w-3.5 text-muted-foreground" />Financiamento: {selectedLead.financing_type.replace(/_/g, " ")}</div>}
+              {selectedLead.installment_value && <div className="flex items-center gap-2 text-sm"><CreditCard className="h-3.5 w-3.5 text-muted-foreground" />Parcelas: {selectedLead.installment_value.replace(/_/g, " ").replace(/r\$/i, "R$")}</div>}
+              {selectedLead.lead_entry_date && <div className="flex items-center gap-2 text-sm"><Calendar className="h-3.5 w-3.5 text-muted-foreground" />Entrada: {new Date(selectedLead.lead_entry_date).toLocaleDateString("pt-BR")}</div>}
+              {selectedLead.value > 0 && <p className="text-lg font-bold">R$ {Number(selectedLead.value).toLocaleString()}</p>}
+              {selectedLead.seller_tag ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary inline-flex items-center gap-1"><Tag className="h-3 w-3" />{selectedLead.seller_tag}</span>
+                  <button className="text-[10px] text-muted-foreground hover:text-primary" onClick={() => { setShowTagDialog(selectedLead); setTagInput(""); setSelectedLead(null); }}>Alterar</button>
+                </div>
+              ) : (
+                <button className="text-xs text-primary hover:underline" onClick={() => { setShowTagDialog(selectedLead); setTagInput(""); setSelectedLead(null); }}>+ Atribuir vendedor</button>
+              )}
             </div>
           </>)}
         </DialogContent>
