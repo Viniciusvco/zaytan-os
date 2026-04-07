@@ -530,11 +530,14 @@ const Dashboard = () => {
   const { role, colaboradorType, onboardingComplete } = useRole();
   if (role === "cliente") return <ClientDashboard onboardingComplete={onboardingComplete} />;
   if (role === "colaborador") {
-    if (colaboradorType === "gestor") return <GestorDashboard />;
-    if (colaboradorType === "designer") return <DesignerDashboard />;
-    return <CSDashboard />;
+    return (
+      <ComingSoon>
+        {colaboradorType === "gestor" ? <GestorDashboard /> :
+         colaboradorType === "designer" ? <DesignerDashboard /> :
+         <CSDashboard />}
+      </ComingSoon>
+    );
   }
-  // Admin: redirect to Financeiro - no dashboard view
   return <AdminDashboard />;
 };
 
