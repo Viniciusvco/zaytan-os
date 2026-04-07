@@ -288,7 +288,7 @@ const CRM = () => {
       </div>
 
       {/* Big numbers */}
-      <div className="grid gap-4 grid-cols-4">
+      <div className="grid gap-4 grid-cols-5">
         <div className="metric-card">
           <p className="text-2xl font-bold">{filteredLeads.length}</p>
           <p className="text-xs text-muted-foreground">Total de Leads</p>
@@ -296,6 +296,7 @@ const CRM = () => {
         <div className="metric-card"><p className="text-2xl font-bold text-success">{closedCount}</p><p className="text-xs text-muted-foreground">Leads Fechados</p></div>
         <div className="metric-card"><p className="text-2xl font-bold text-destructive">{lostCount}</p><p className="text-xs text-muted-foreground">Leads Perdidos</p></div>
         <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalFaturado.toLocaleString("pt-BR")}</p><p className="text-xs text-muted-foreground">Valor Faturado</p></div>
       </div>
 
       {/* Charts side by side */}
