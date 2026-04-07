@@ -177,16 +177,15 @@ const CRM = () => {
                       {lossReasonLabels[lead.lossReason]}
                     </span>
                   )}
-                  {!isClient && (
-                    <div className="flex gap-1 mt-2">
-                      {col.key !== "entrou" && col.key !== "perdido" && (
-                        <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
-                      )}
-                      {col.key !== "fechado" && col.key !== "perdido" && (
-                        <button onClick={e => { e.stopPropagation(); const next = stageColumns[stageColumns.findIndex(c => c.key === col.key) + 1]; if (next) moveLead(lead, next.key); }} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">→</button>
-                      )}
-                    </div>
-                  )}
+                  {/* Move buttons - clients and admin/colaborador can move */}
+                  <div className="flex gap-1 mt-2">
+                    {col.key !== "entrou" && col.key !== "perdido" && (
+                      <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
+                    )}
+                    {col.key !== "fechado" && col.key !== "perdido" && (
+                      <button onClick={e => { e.stopPropagation(); const next = stageColumns[stageColumns.findIndex(c => c.key === col.key) + 1]; if (next) moveLead(lead, next.key); }} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">→</button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
