@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useRole } from "@/contexts/RoleContext";
+import { useRole, mockPayments } from "@/contexts/RoleContext";
 import {
-  DollarSign, TrendingUp, Target, Receipt, Repeat, Zap, Users, MousePointer, BarChart3,
-  AlertTriangle, CheckCircle2, Clock, FileText, Rocket, ArrowUp, ArrowDown,
+  DollarSign, TrendingUp, Target, Repeat, Zap, Users, MousePointer, BarChart3,
+  AlertTriangle, CheckCircle2, Clock, Rocket, ArrowUp, ArrowDown,
+  Package, Kanban, Receipt,
 } from "lucide-react";
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend, PieChart, Pie, Cell,
 } from "recharts";
 import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilter";
 import { Progress } from "@/components/ui/progress";
@@ -37,14 +38,26 @@ const contractsOverview = [
   { client: "Construtora Horizonte", status: "ativo", valor: 3800, vencimento: "2026-04-10", diasRestantes: 4 },
 ];
 
+const leadQualityData = [
+  { name: "Sem Interesse", value: 35 },
+  { name: "Não Atende", value: 25 },
+  { name: "Concorrente", value: 20 },
+  { name: "Sem Perfil", value: 15 },
+  { name: "Dados Incorretos", value: 5 },
+];
+const QUAL_COLORS = ["hsl(0, 72%, 51%)", "hsl(35, 90%, 55%)", "hsl(262, 60%, 55%)", "hsl(200, 70%, 50%)", "hsl(152, 60%, 42%)"];
+
 // ─── CLIENT VIEW ───
 function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }) {
+  const [dateRange, setDateRange] = useState(useDefaultDateRange());
   const totalLeads = 85;
   const prevLeads = 72;
   const cpl = 49.41;
   const prevCpl = 54.20;
   const cliques = 2400;
   const prevCliques = 2100;
+  const faturamento = 42500;
+  const ticketMedio = 4200;
   const evolution = [
     { sem: "Sem 1", leads: 18, anterior: 15 },
     { sem: "Sem 2", leads: 22, anterior: 19 },
@@ -61,7 +74,6 @@ function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Onboarding inline if not complete */}
       {!onboardingComplete && (
         <div className="metric-card border-primary/30 bg-primary/5">
           <div className="flex items-center gap-3 mb-3">
@@ -79,27 +91,30 @@ function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }
         </div>
       )}
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Meus Resultados</h1>
-        <p className="text-sm text-muted-foreground mt-1">Acompanhe a performance das suas campanhas</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Meus Resultados</h1>
+          <p className="text-sm text-muted-foreground mt-1">Acompanhe a performance das suas campanhas</p>
+        </div>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: "Leads Gerados", value: totalLeads, prev: prevLeads, icon: Users, color: "primary", format: (v: number) => v.toString() },
-          { label: "Custo por Lead", value: cpl, prev: prevCpl, icon: DollarSign, color: "info", format: (v: number) => `R$ ${v.toFixed(2)}` },
-          { label: "Cliques", value: cliques, prev: prevCliques, icon: MousePointer, color: "success", format: (v: number) => v.toLocaleString() },
+          { label: "Leads Gerados", value: totalLeads, prev: prevLeads, icon: Users, format: (v: number) => v.toString() },
+          { label: "Custo por Lead", value: cpl, prev: prevCpl, icon: DollarSign, format: (v: number) => `R$ ${v.toFixed(2)}` },
+          { label: "Cliques", value: cliques, prev: prevCliques, icon: MousePointer, format: (v: number) => v.toLocaleString() },
+          { label: "Faturamento", value: faturamento, prev: faturamento * 0.9, icon: Receipt, format: (v: number) => `R$ ${(v / 1000).toFixed(1)}k` },
+          { label: "Ticket Médio", value: ticketMedio, prev: ticketMedio * 0.95, icon: Target, format: (v: number) => `R$ ${v.toLocaleString()}` },
         ].map(m => {
           const t = trend(m.value, m.prev);
           const TrendIcon = t.icon;
           return (
             <div key={m.label} className="metric-card">
-              <div className={`h-8 w-8 rounded-lg bg-${m.color}/10 flex items-center justify-center mb-2`}>
-                <m.icon className={`h-4 w-4 text-${m.color}`} />
-              </div>
-              <p className="text-3xl font-bold">{m.format(m.value)}</p>
+              <m.icon className="h-4 w-4 text-primary mb-1" />
+              <p className="text-2xl font-bold">{m.format(m.value)}</p>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-xs text-muted-foreground">{m.label}</p>
+                <p className="text-[10px] text-muted-foreground">{m.label}</p>
                 <span className={`text-[10px] ${t.color} flex items-center gap-0.5 font-medium`}>
                   <TrendIcon className="h-3 w-3" /> {t.text}
                 </span>
@@ -146,7 +161,6 @@ function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }
 
 // ─── COLABORADOR VIEWS ───
 function GestorDashboard() {
-  // Shows performance ranking inline
   const campaigns = [
     { client: "Construtora Horizonte", cpl: 135.71, ctr: 0.8, budget: 95, status: "critico" as const },
     { client: "Imobiliária Nova Era", cpl: 137.78, ctr: 0.9, budget: 103, status: "critico" as const },
@@ -262,12 +276,24 @@ function CSDashboard() {
 // ─── ADMIN MASTER DASHBOARD ───
 function AdminDashboard() {
   const [dateRange, setDateRange] = useState(useDefaultDateRange());
-  const [tab, setTab] = useState<"geral" | "financeiro" | "clientes" | "contratos">("geral");
+  const [tab, setTab] = useState<"geral" | "financeiro" | "clientes" | "contratos" | "pagamentos">("geral");
 
   const mrrTotal = 35500; const ltvMedio = 42600; const churnRate = 4.2;
   const onboardingCount = clientsOverview.filter(c => c.onboarding).length;
   const faturamentoAtual = 42800; const metaMes = 55000;
   const pctMeta = Math.round((faturamentoAtual / metaMes) * 100);
+  const totalFuncionarios = 4;
+  const totalTasksPendentes = 12;
+  const totalProdutos = 5;
+
+  const inadimplentes = mockPayments.filter(p => p.status === "inadimplente");
+  const custoInadimplencia = inadimplentes.reduce((s, p) => s + p.amount, 0);
+
+  const paymentStatusConfig = {
+    em_dia: { label: "Em dia", className: "bg-success/10 text-success" },
+    atrasado: { label: "Atrasado", className: "bg-warning/10 text-warning" },
+    inadimplente: { label: "Inadimplente", className: "bg-destructive/10 text-destructive" },
+  };
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -277,28 +303,33 @@ function AdminDashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
         {[
           { label: "MRR Total", value: `R$ ${mrrTotal.toLocaleString()}`, icon: Repeat, color: "primary" },
           { label: "LTV Médio", value: `R$ ${ltvMedio.toLocaleString()}`, icon: TrendingUp, color: "success" },
           { label: "Churn Rate", value: `${churnRate}%`, icon: AlertTriangle, color: "destructive" },
           { label: "Em Onboarding", value: onboardingCount.toString(), icon: Rocket, color: "info" },
+          { label: "Funcionários", value: totalFuncionarios.toString(), icon: Users, color: "primary" },
+          { label: "Tasks Pendentes", value: totalTasksPendentes.toString(), icon: Kanban, color: "warning" },
+          { label: "Produtos", value: totalProdutos.toString(), icon: Package, color: "info" },
+          { label: "Inadimplência", value: `R$ ${custoInadimplencia.toLocaleString()}`, icon: AlertTriangle, color: "destructive" },
         ].map(m => (
           <div key={m.label} className="metric-card">
             <m.icon className={`h-4 w-4 text-${m.color} mb-1`} />
-            <p className="text-2xl font-bold">{m.value}</p>
+            <p className="text-lg font-bold">{m.value}</p>
             <p className="text-[10px] text-muted-foreground">{m.label}</p>
           </div>
         ))}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted rounded-lg p-0.5 w-fit">
+      <div className="flex gap-1 bg-muted rounded-lg p-0.5 w-fit flex-wrap">
         {([
           { key: "geral", label: "Visão Geral" },
           { key: "financeiro", label: "Financeiro" },
           { key: "clientes", label: "Clientes" },
           { key: "contratos", label: "Contratos" },
+          { key: "pagamentos", label: "Pagamentos" },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${tab === t.key ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
@@ -332,6 +363,45 @@ function AdminDashboard() {
                   <Bar dataKey="spot" name="Spot" stackId="a" fill="hsl(340, 65%, 50%)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+          {/* Lead Quality Chart */}
+          <div className="metric-card">
+            <h3 className="text-sm font-semibold mb-3">Qualidade de Leads (Motivos de Perda)</h3>
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={leadQualityData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>
+                    {leadQualityData.map((_, i) => <Cell key={i} fill={QUAL_COLORS[i]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-1 mt-2">
+              {leadQualityData.map((d, i) => (
+                <div key={d.name} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2"><div className="h-2 w-2 rounded-full" style={{ backgroundColor: QUAL_COLORS[i] }} /><span className="text-muted-foreground">{d.name}</span></div>
+                  <span className="font-medium">{d.value}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Performance Summary */}
+          <div className="metric-card">
+            <h3 className="text-sm font-semibold mb-3">Performance Geral da Agência</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: "CPL Médio", value: "R$ 81.41" },
+                { label: "CTR Médio", value: "1.9%" },
+                { label: "Taxa de Conversão", value: "16.7%" },
+                { label: "Leads Totais (mês)", value: "340" },
+              ].map(m => (
+                <div key={m.label} className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-lg font-bold">{m.value}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -407,6 +477,49 @@ function AdminDashboard() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {tab === "pagamentos" && (
+        <div className="space-y-4">
+          {custoInadimplencia > 0 && (
+            <div className="metric-card border-destructive/30 bg-destructive/5">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div>
+                  <h3 className="text-sm font-bold text-destructive">Custo de Inadimplência</h3>
+                  <p className="text-2xl font-bold text-destructive">R$ {custoInadimplencia.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{inadimplentes.length} cliente(s) inadimplente(s)</p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="metric-card">
+            <h3 className="text-sm font-semibold mb-3">Status de Pagamento por Cliente</h3>
+            <table className="w-full">
+              <thead><tr className="border-b border-border">
+                <th className="text-left text-xs font-medium text-muted-foreground pb-2">Cliente</th>
+                <th className="text-right text-xs font-medium text-muted-foreground pb-2">Valor</th>
+                <th className="text-right text-xs font-medium text-muted-foreground pb-2">Vencimento</th>
+                <th className="text-right text-xs font-medium text-muted-foreground pb-2">Status</th>
+              </tr></thead>
+              <tbody>
+                {mockPayments.map(p => {
+                  const cfg = paymentStatusConfig[p.status];
+                  return (
+                    <tr key={p.clientName} className="border-b border-border last:border-0 hover:bg-muted/30">
+                      <td className="py-2.5 text-sm font-medium">{p.clientName}</td>
+                      <td className="py-2.5 text-right text-sm">R$ {p.amount.toLocaleString()}</td>
+                      <td className="py-2.5 text-right text-xs text-muted-foreground">{new Date(p.dueDate).toLocaleDateString("pt-BR")}</td>
+                      <td className="py-2.5 text-right">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${cfg.className}`}>{cfg.label}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

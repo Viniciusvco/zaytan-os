@@ -4,6 +4,7 @@ import { Moon, Sun, Shield, Users, User, Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRole, UserRole, ColaboradorSubtype } from "@/contexts/RoleContext";
 import { NotificationBell } from "@/components/NotificationBell";
+import { ClientBanners } from "@/components/ClientBanners";
 
 const roleConfig: Record<UserRole, { label: string; icon: typeof Shield; className: string }> = {
   admin: { label: "Admin", icon: Shield, className: "bg-primary/10 text-primary" },
@@ -26,9 +27,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
-  const rc = roleConfig[role];
-
-  // Training lock for colaboradores
   const isLocked = role === "colaborador" && !trainingComplete;
 
   return (
@@ -36,6 +34,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex w-full">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
+          {/* Client banners (payment + feedback) */}
+          <ClientBanners />
           <header className="h-12 flex items-center justify-between border-b border-border px-4 shrink-0">
             <SidebarTrigger />
             <div className="flex items-center gap-3">
@@ -54,7 +54,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 })}
               </div>
 
-              {/* Subtype selector for colaborador */}
               {role === "colaborador" && (
                 <select
                   value={colaboradorType}
@@ -67,7 +66,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </select>
               )}
 
-              {/* Simulator dropdown (Admin) */}
               {role === "admin" && (
                 <div className="relative">
                   <button onClick={() => setShowSimulator(!showSimulator)}

@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, Users, DollarSign, Package, Target, HeadphonesIcon,
   FileText, BarChart3, Kanban, UserCog, Briefcase, Rocket, GraduationCap, MessageSquare,
+  Settings, Bot,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
@@ -32,7 +33,6 @@ const adminItems = {
   ],
 };
 
-// Dynamic workspace items per colaborador subtype
 const colaboradorItems = {
   gestor: {
     principal: [
@@ -78,11 +78,17 @@ const clienteItems = {
     { title: "Demandas", url: "/demandas", icon: Kanban },
     { title: "CRM", url: "/crm", icon: Target },
   ],
-  feedback: [
+  sucesso: [
     { title: "Feedbacks", url: "/feedbacks", icon: MessageSquare },
+    { title: "Minha Equipe", url: "/minha-equipe", icon: Users },
+    { title: "Suporte", url: "/suporte", icon: Bot },
   ],
-  setup: [
+  aprender: [
+    { title: "Academy", url: "/academy", icon: GraduationCap },
+  ],
+  config: [
     { title: "Onboarding", url: "/onboarding", icon: Rocket },
+    { title: "Configurações", url: "/configuracoes", icon: Settings },
   ],
 };
 
@@ -108,7 +114,6 @@ export function AppSidebar() {
   if (role === "admin") {
     groups = adminItems;
   } else if (role === "colaborador") {
-    // Training lock: only show Academy
     if (!trainingComplete) {
       groups = { formacao: [{ title: "Academy", url: "/academy", icon: GraduationCap }] };
     } else {
@@ -120,7 +125,8 @@ export function AppSidebar() {
 
   const groupLabels: Record<string, string> = {
     principal: "Principal", operacao: "Operação", gestao: "Gestão",
-    setup: "Configuração", formacao: "Formação", feedback: "Sucesso",
+    config: "Configuração", formacao: "Formação", sucesso: "Sucesso",
+    aprender: "Aprender", feedback: "Sucesso",
   };
 
   return (
@@ -128,7 +134,11 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
-            <img src={zaytanLogo} alt="Zaytan" className="h-9 w-9 object-cover" />
+            {whiteLabel.logo ? (
+              <img src={whiteLabel.logo} alt={whiteLabel.companyName} className="h-9 w-9 object-cover" />
+            ) : (
+              <img src={zaytanLogo} alt="Zaytan" className="h-9 w-9 object-cover" />
+            )}
           </div>
           {!collapsed && (
             <div>
@@ -155,7 +165,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{whiteLabel.companyName} OS v7.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{whiteLabel.companyName} OS v8.0</p>
           </div>
         )}
       </SidebarFooter>
