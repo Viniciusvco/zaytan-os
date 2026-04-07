@@ -67,22 +67,7 @@ const Produtos = () => {
     return matchSearch && matchCat;
   });
 
-  const ProductForm = ({ product, onChange }: { product: any; onChange: (p: any) => void }) => (
-    <div className="space-y-3">
-      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome do produto" value={product.name} onChange={e => onChange({ ...product, name: e.target.value })} />
-      <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Descrição" value={product.description || ""} onChange={e => onChange({ ...product, description: e.target.value })} />
-      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.category || "trafego"} onChange={e => onChange({ ...product, category: e.target.value })}>
-        <option value="trafego">Tráfego</option><option value="automacao">Automação</option><option value="lp">Landing Page</option><option value="consultoria">Consultoria</option>
-      </select>
-      <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={product.recurrence || "mensal"} onChange={e => onChange({ ...product, recurrence: e.target.value })}>
-        <option value="mensal">Recorrente (Mensal)</option><option value="pontual">Pontual</option>
-      </select>
-      <div className="grid grid-cols-2 gap-3">
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Mínimo (R$)" value={product.min_price || ""} onChange={e => onChange({ ...product, min_price: Number(e.target.value) })} />
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Preço Máximo (R$)" value={product.max_price || ""} onChange={e => onChange({ ...product, max_price: Number(e.target.value) })} />
-      </div>
-    </div>
-  );
+  // Form fields rendered inline to avoid re-mount on state change
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Carregando...</p></div>;
 
