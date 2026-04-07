@@ -115,6 +115,15 @@ const CRM = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const updateSaleValue = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: number }) => {
+      const { error } = await supabase.from("leads").update({ value }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setEditValueTarget(null); toast.success("Valor atualizado"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const deleteLead = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("leads").delete().eq("id", id);
