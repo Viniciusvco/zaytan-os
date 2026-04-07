@@ -250,7 +250,7 @@ const CRM = () => {
                     {selectedLead.notes.length === 0 && <p className="text-xs text-muted-foreground">Sem registros.</p>}
                     {selectedLead.notes.map((n, i) => <div key={i} className="bg-muted rounded p-2 text-xs">{n}</div>)}
                   </div>
-                  {!isClient && (
+                  {canAddNotes && (
                     <div className="flex gap-2 mt-2">
                       <input className="flex-1 h-8 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Adicionar nota..." value={newNote} onChange={e => setNewNote(e.target.value)} onKeyDown={e => e.key === "Enter" && addNote()} />
                       <Button size="sm" variant="outline" onClick={addNote}>+</Button>

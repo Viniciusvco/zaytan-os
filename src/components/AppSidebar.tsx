@@ -120,11 +120,26 @@ export function AppSidebar() {
     groups = clienteItems;
   }
 
-  const groupLabels: Record<string, string> = {
+  // Determine which groups are "coming soon" based on role
+  const comingSoonGroups = new Set<string>();
+  if (role === "cliente") {
+    comingSoonGroups.add("sucesso");
+    comingSoonGroups.add("aprender");
+    comingSoonGroups.add("config");
+  } else if (role === "colaborador") {
+    Object.keys(groups).forEach(k => comingSoonGroups.add(k));
+  }
+
+  const baseLabels: Record<string, string> = {
     principal: "Principal", operacao: "Operação", gestao: "Gestão",
     config: "Configuração", formacao: "Formação", sucesso: "Sucesso",
     aprender: "Aprender", feedback: "Sucesso",
   };
+
+  const groupLabels: Record<string, string> = {};
+  for (const key of Object.keys(baseLabels)) {
+    groupLabels[key] = comingSoonGroups.has(key) ? `${baseLabels[key]} (Em breve)` : baseLabels[key];
+  }
 
   return (
     <Sidebar collapsible="icon">
