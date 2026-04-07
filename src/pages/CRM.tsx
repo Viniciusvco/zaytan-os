@@ -101,6 +101,10 @@ const CRM = () => {
 
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
+  // Swapped: Client gets full CRM (add leads, notes, chart), Admin gets simplified pipeline
+  const canAddLeads = isClient;
+  const canAddNotes = isClient;
+  const showChart = isClient;
 
   // Ticket médio
   const fechados = leads.filter(l => l.stage === "fechado");
