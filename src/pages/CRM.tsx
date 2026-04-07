@@ -488,7 +488,17 @@ const CRM = () => {
               {selectedLead.financing_type && <div className="flex items-center gap-2 text-sm"><Car className="h-3.5 w-3.5 text-muted-foreground" />Financiamento: {selectedLead.financing_type.replace(/_/g, " ")}</div>}
               {selectedLead.installment_value && <div className="flex items-center gap-2 text-sm"><CreditCard className="h-3.5 w-3.5 text-muted-foreground" />Parcelas: {selectedLead.installment_value.replace(/_/g, " ").replace(/r\$/i, "R$")}</div>}
               {selectedLead.lead_entry_date && <div className="flex items-center gap-2 text-sm"><Calendar className="h-3.5 w-3.5 text-muted-foreground" />Entrada: {new Date(selectedLead.lead_entry_date).toLocaleDateString("pt-BR")}</div>}
-              {selectedLead.value > 0 && <p className="text-lg font-bold">R$ {Number(selectedLead.value).toLocaleString()}</p>}
+              {selectedLead.value > 0 && (
+                <div className="flex items-center gap-2">
+                  <p className="text-lg font-bold">R$ {Number(selectedLead.value).toLocaleString()}</p>
+                  {selectedLead.status === "fechado" && (
+                    <button className="text-xs text-primary hover:underline" onClick={() => { setEditValueTarget(selectedLead); setEditValue(selectedLead.value || 0); setSelectedLead(null); }}>Editar valor</button>
+                  )}
+                </div>
+              )}
+              {selectedLead.status === "fechado" && !selectedLead.value && (
+                <button className="text-xs text-primary hover:underline" onClick={() => { setEditValueTarget(selectedLead); setEditValue(0); setSelectedLead(null); }}>+ Adicionar valor da venda</button>
+              )}
               {selectedLead.notes && <div className="text-xs text-muted-foreground bg-muted rounded-lg p-2"><strong>Obs:</strong> {selectedLead.notes}</div>}
               {selectedLead.seller_tag ? (
                 <div className="flex items-center gap-2">
