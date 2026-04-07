@@ -1,8 +1,9 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { Moon, Sun, Shield, Users, User, Eye } from "lucide-react";
+import { Moon, Sun, Shield, Users, User, Eye, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRole, UserRole, ColaboradorSubtype } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ClientBanners } from "@/components/ClientBanners";
 
