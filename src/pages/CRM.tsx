@@ -106,7 +106,7 @@ const CRM = () => {
   const fechados = leads.filter(l => l.stage === "fechado");
   const ticketMedio = fechados.length > 0 ? Math.round(fechados.reduce((s, l) => s + (l.saleValue || l.value), 0) / fechados.length) : 0;
 
-  return (
+  const content = (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
