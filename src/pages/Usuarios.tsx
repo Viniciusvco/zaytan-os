@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Shield, Users, User, Power, PowerOff } from "lucide-react";
+import { Plus, Power, PowerOff, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -24,6 +24,9 @@ const Usuarios = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "cliente" as AppRole, colaborador_type: "gestor" as ColabType });
+
+  // Edit user state
+  const [editUser, setEditUser] = useState<any>(null);
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ["profiles"],
@@ -60,6 +63,23 @@ const Usuarios = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const updateUser = useMutation({
+    mutationFn: async (u: { id: string; full_name: string; email: string; created_at: string }) => {
+      const { error } = await supabase.from("profiles").update({
+        full_name: u.full_name,
+        email: u.email,
+        created_at: u.created_at,
+      }).eq("id", u.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+      setEditUser(null);
+      toast.success("Usuário atualizado");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   const filtered = profiles.filter((u: any) => filterType === "all" || u.role === filterType);
   const activeCount = profiles.filter((u: any) => u.active).length;
 
@@ -86,7 +106,7 @@ const Usuarios = () => {
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Email</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Perfil</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
-            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Criado em</th>
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Entrada</th>
             <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Ações</th>
           </tr></thead>
           <tbody>
@@ -101,9 +121,14 @@ const Usuarios = () => {
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${u.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.active ? "Ativo" : "Inativo"}</span></td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(u.created_at).toLocaleDateString("pt-BR")}</td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => toggleActive.mutate({ id: u.id, active: !u.active })} className="p-1.5 rounded-md hover:bg-muted">
-                      {u.active ? <PowerOff className="h-3.5 w-3.5 text-warning" /> : <Power className="h-3.5 w-3.5 text-success" />}
-                    </button>
+                    <div className="flex justify-end gap-1">
+                      <button onClick={() => setEditUser({ ...u, created_at_date: u.created_at ? u.created_at.split("T")[0] : "" })} className="p-1.5 rounded-md hover:bg-muted">
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                      <button onClick={() => toggleActive.mutate({ id: u.id, active: !u.active })} className="p-1.5 rounded-md hover:bg-muted">
+                        {u.active ? <PowerOff className="h-3.5 w-3.5 text-warning" /> : <Power className="h-3.5 w-3.5 text-success" />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -112,6 +137,7 @@ const Usuarios = () => {
         </table>
       </div>
 
+      {/* Add user dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome completo" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
@@ -128,6 +154,43 @@ const Usuarios = () => {
         </div>
         <DialogFooter><Button onClick={() => { if (form.name && form.email && form.password) createMut.mutate(); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Criar Usuário"}</Button></DialogFooter>
       </DialogContent></Dialog>
+
+      {/* Edit user dialog */}
+      <Dialog open={!!editUser} onOpenChange={() => setEditUser(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Usuário</DialogTitle></DialogHeader>
+          {editUser && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome completo</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.full_name} onChange={e => setEditUser((p: any) => ({ ...p, full_name: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.email} onChange={e => setEditUser((p: any) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Data de entrada</label>
+                <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.created_at_date} onChange={e => setEditUser((p: any) => ({ ...p, created_at_date: e.target.value }))} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => {
+              if (editUser && editUser.full_name && editUser.email) {
+                updateUser.mutate({
+                  id: editUser.id,
+                  full_name: editUser.full_name,
+                  email: editUser.email,
+                  created_at: editUser.created_at_date ? new Date(editUser.created_at_date).toISOString() : editUser.created_at,
+                });
+              }
+            }} disabled={updateUser.isPending}>
+              {updateUser.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

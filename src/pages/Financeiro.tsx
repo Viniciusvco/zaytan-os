@@ -12,7 +12,9 @@ import { toast } from "sonner";
 type FinancialType = "receita" | "despesa";
 type PaymentStatus = "pendente" | "pago" | "atrasado";
 
-const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "" };
+const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "", is_mrr: false };
+
+const emptyMrrForm = { client_id: "", mrr_value: 0, description: "MRR" };
 
 const Financeiro = () => {
   const qc = useQueryClient();
@@ -20,9 +22,11 @@ const Financeiro = () => {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [showAdd, setShowAdd] = useState(false);
+  const [showMrr, setShowMrr] = useState(false);
   const [editRecord, setEditRecord] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [mrrForm, setMrrForm] = useState(emptyMrrForm);
 
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["financial_records"],
@@ -50,6 +54,15 @@ const Financeiro = () => {
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); setShowAdd(false); setForm(emptyForm); toast.success("Lançamento criado"); },
     onError: (e: any) => toast.error(e.message),
+  });
+
+  const createMrrMut = useMutation({
+    mutationFn: async (p: typeof emptyMrrForm) => {
+      const payload: any = { amount: p.mrr_value, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: p.description || "MRR", category: "MRR", client_id: p.client_id || null };
+      const { error } = await supabase.from("financial_records").insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["financial_records"] }); setShowMrr(false); setMrrForm(emptyMrrForm); toast.success("MRR cadastrado"); },
   });
 
   const updateMut = useMutation({
@@ -114,6 +127,7 @@ const Financeiro = () => {
         <div><h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1><p className="text-sm text-muted-foreground mt-1">Receitas, custos e margem real</p></div>
         <div className="flex items-center gap-2">
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <Button variant="outline" onClick={() => setShowMrr(true)}><DollarSign className="h-4 w-4 mr-1" /> Cadastrar MRR</Button>
           <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lançamento</Button>
         </div>
       </div>
@@ -180,6 +194,28 @@ const Financeiro = () => {
       <Dialog open={!!editRecord} onOpenChange={() => setEditRecord(null)}><DialogContent><DialogHeader><DialogTitle>Editar Lançamento</DialogTitle></DialogHeader>
         {editRecord && <RecordForm data={editRecord} onChange={setEditRecord} />}
         <DialogFooter><Button onClick={() => { if (editRecord) updateMut.mutate(editRecord); }} disabled={updateMut.isPending}>{updateMut.isPending ? "Salvando..." : "Salvar"}</Button></DialogFooter>
+      </DialogContent></Dialog>
+
+      {/* MRR Dialog */}
+      <Dialog open={showMrr} onOpenChange={setShowMrr}><DialogContent><DialogHeader><DialogTitle>Cadastrar MRR (Receita Recorrente)</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Cliente</label>
+            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={mrrForm.client_id} onChange={e => setMrrForm(p => ({ ...p, client_id: e.target.value }))}>
+              <option value="">Selecione o cliente</option>
+              {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Valor MRR (R$)</label>
+            <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Ex: 2500" value={mrrForm.mrr_value || ""} onChange={e => setMrrForm(p => ({ ...p, mrr_value: Number(e.target.value) }))} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Descrição</label>
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="MRR - Gestão de Tráfego" value={mrrForm.description} onChange={e => setMrrForm(p => ({ ...p, description: e.target.value }))} />
+          </div>
+        </div>
+        <DialogFooter><Button onClick={() => { if (mrrForm.client_id && mrrForm.mrr_value > 0) createMrrMut.mutate(mrrForm); }} disabled={createMrrMut.isPending}>{createMrrMut.isPending ? "Cadastrando..." : "Cadastrar MRR"}</Button></DialogFooter>
       </DialogContent></Dialog>
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir lançamento?</AlertDialogTitle><AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription></AlertDialogHeader>
