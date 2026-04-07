@@ -172,7 +172,13 @@ const CRM = () => {
       {/* Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto">
         {stageColumns.map(col => (
-          <div key={col.key} className="kanban-column min-w-[220px]">
+          <div
+            key={col.key}
+            className={`kanban-column min-w-[220px] transition-colors ${dragOverCol === col.key ? "ring-2 ring-primary/30 bg-primary/5" : ""}`}
+            onDragOver={e => handleDragOver(e, col.key)}
+            onDragLeave={handleDragLeave}
+            onDrop={e => handleDrop(e, col.key)}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold">{col.label}</h3>
               <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>
