@@ -158,9 +158,9 @@ const CRM = () => {
 
   const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<LeadStatus>(handleDnDMove);
 
-  const totalValue = filteredLeads.filter((l: any) => l.status === "fechado").reduce((s: number, l: any) => s + Number(l.value || 0), 0);
-  const pipelineValue = filteredLeads.filter((l: any) => !["fechado", "perdido"].includes(l.status)).reduce((s: number, l: any) => s + Number(l.value || 0), 0);
-  const conversionRate = filteredLeads.length > 0 ? Math.round((filteredLeads.filter((l: any) => l.status === "fechado").length / filteredLeads.length) * 100) : 0;
+  const closedCount = filteredLeads.filter((l: any) => l.status === "fechado").length;
+  const lostCount = filteredLeads.filter((l: any) => l.status === "perdido").length;
+  const conversionRate = filteredLeads.length > 0 ? Math.round((closedCount / filteredLeads.length) * 100) : 0;
 
   const lostLeads = filteredLeads.filter((l: any) => l.status === "perdido" && l.loss_reason);
   const lossBreakdown = Object.entries(lossReasonLabels).map(([key, label]) => ({
@@ -277,8 +277,8 @@ const CRM = () => {
           <p className="text-2xl font-bold">{filteredLeads.length}</p>
           <p className="text-xs text-muted-foreground">Total de Leads</p>
         </div>
-        <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">Fechados</p></div>
-        <div className="metric-card"><p className="text-2xl font-bold text-primary">R$ {pipelineValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">No Pipeline</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-success">{closedCount}</p><p className="text-xs text-muted-foreground">Leads Fechados</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-destructive">{lostCount}</p><p className="text-xs text-muted-foreground">Leads Perdidos</p></div>
         <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
       </div>
 
