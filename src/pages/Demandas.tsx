@@ -97,7 +97,7 @@ const Demandas = () => {
     setShowAdd(false);
   };
 
-  return (
+  const content = (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
