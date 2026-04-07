@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
+import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, MessageSquare, Phone, Mail, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -105,12 +106,12 @@ const CRM = () => {
   const fechados = leads.filter(l => l.stage === "fechado");
   const ticketMedio = fechados.length > 0 ? Math.round(fechados.reduce((s, l) => s + (l.saleValue || l.value), 0) / fechados.length) : 0;
 
-  return (
+  const content = (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{isClient ? "Meus Leads" : "CRM — Pipeline de Vendas"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{leads.length} leads no pipeline</p>
+          <h1 className="text-2xl font-bold tracking-tight">{isClient ? "Meus Leads" : "CRM — Prospecção de Novos Clientes"}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{isClient ? `${leads.length} leads no pipeline` : "Pipeline de prospecção da agência"}</p>
         </div>
         {!isClient && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
       </div>
@@ -177,16 +178,15 @@ const CRM = () => {
                       {lossReasonLabels[lead.lossReason]}
                     </span>
                   )}
-                  {!isClient && (
-                    <div className="flex gap-1 mt-2">
-                      {col.key !== "entrou" && col.key !== "perdido" && (
-                        <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
-                      )}
-                      {col.key !== "fechado" && col.key !== "perdido" && (
-                        <button onClick={e => { e.stopPropagation(); const next = stageColumns[stageColumns.findIndex(c => c.key === col.key) + 1]; if (next) moveLead(lead, next.key); }} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">→</button>
-                      )}
-                    </div>
-                  )}
+                  {/* Move buttons - clients and admin/colaborador can move */}
+                  <div className="flex gap-1 mt-2">
+                    {col.key !== "entrou" && col.key !== "perdido" && (
+                      <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
+                    )}
+                    {col.key !== "fechado" && col.key !== "perdido" && (
+                      <button onClick={e => { e.stopPropagation(); const next = stageColumns[stageColumns.findIndex(c => c.key === col.key) + 1]; if (next) moveLead(lead, next.key); }} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">→</button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -277,6 +277,11 @@ const CRM = () => {
       </Dialog>
     </div>
   );
+
+  if (role === "colaborador") {
+    return <ComingSoon>{content}</ComingSoon>;
+  }
+  return content;
 };
 
 export default CRM;

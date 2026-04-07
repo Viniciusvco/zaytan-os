@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRole } from "@/contexts/RoleContext";
+import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, AlertTriangle, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -96,7 +97,7 @@ const Demandas = () => {
     setShowAdd(false);
   };
 
-  return (
+  const content = (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
@@ -194,6 +195,11 @@ const Demandas = () => {
       </Dialog>
     </div>
   );
+
+  if (role === "colaborador") {
+    return <ComingSoon>{content}</ComingSoon>;
+  }
+  return content;
 };
 
 export default Demandas;

@@ -14,8 +14,7 @@ import {
 
 const adminItems = {
   principal: [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Clientes", url: "/clientes", icon: Users },
+    { title: "Financeiro", url: "/financeiro", icon: DollarSign },
     { title: "Produtos", url: "/produtos", icon: Package },
     { title: "Contratos", url: "/contratos", icon: FileText },
   ],
@@ -23,7 +22,6 @@ const adminItems = {
     { title: "Demandas", url: "/demandas", icon: Kanban },
     { title: "CRM", url: "/crm", icon: Target },
     { title: "Comercial", url: "/comercial", icon: Briefcase },
-    { title: "Financeiro", url: "/financeiro", icon: DollarSign },
     { title: "Performance", url: "/performance", icon: BarChart3 },
   ],
   gestao: [
@@ -88,7 +86,6 @@ const clienteItems = {
   ],
   config: [
     { title: "Onboarding", url: "/onboarding", icon: Rocket },
-    { title: "Configurações", url: "/configuracoes", icon: Settings },
   ],
 };
 
@@ -134,15 +131,11 @@ export function AppSidebar() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
-            {whiteLabel.logo ? (
-              <img src={whiteLabel.logo} alt={whiteLabel.companyName} className="h-9 w-9 object-cover" />
-            ) : (
-              <img src={zaytanLogo} alt="Zaytan" className="h-9 w-9 object-cover" />
-            )}
+            <img src={zaytanLogo} alt="Zaytan" className="h-9 w-9 object-cover" />
           </div>
           {!collapsed && (
             <div>
-              <h2 className="text-sm font-bold text-foreground tracking-tight">{whiteLabel.companyName} OS</h2>
+              <h2 className="text-sm font-bold text-foreground tracking-tight">Zaytan OS</h2>
               <p className="text-[10px] text-muted-foreground capitalize">
                 {role === "admin" ? "Admin" : role === "colaborador"
                   ? (colaboradorType === "gestor" ? "Gestor" : colaboradorType === "designer" ? "Designer" : "CS")
@@ -165,7 +158,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{whiteLabel.companyName} OS v8.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v8.0</p>
           </div>
         )}
       </SidebarFooter>

@@ -19,7 +19,7 @@ import Equipe from "./pages/Equipe";
 import Usuarios from "./pages/Usuarios";
 import Academy from "./pages/Academy";
 import Feedbacks from "./pages/Feedbacks";
-import Configuracoes from "./pages/Configuracoes";
+// Configuracoes removed
 import SupportChat from "./pages/SupportChat";
 import MinhaEquipe from "./pages/MinhaEquipe";
 import Landing from "./pages/Landing";
@@ -53,7 +53,7 @@ const App = () => (
                   <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="/academy" element={<Academy />} />
                   <Route path="/feedbacks" element={<Feedbacks />} />
-                  <Route path="/configuracoes" element={<Configuracoes />} />
+                  {/* Configuracoes route removed */}
                   <Route path="/suporte" element={<SupportChat />} />
                   <Route path="/minha-equipe" element={<MinhaEquipe />} />
                   <Route path="*" element={<NotFound />} />
