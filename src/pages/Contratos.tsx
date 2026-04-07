@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle } from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle, RefreshCw, PieChart } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilt
 import { ContextFilters } from "@/components/ContextFilters";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { Progress } from "@/components/ui/progress";
 
 type ContractStatus = "rascunho" | "ativo" | "cancelado" | "aguardando";
 
