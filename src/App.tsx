@@ -19,7 +19,7 @@ import Equipe from "./pages/Equipe";
 import Usuarios from "./pages/Usuarios";
 import Academy from "./pages/Academy";
 import Feedbacks from "./pages/Feedbacks";
-import Configuracoes from "./pages/Configuracoes";
+// Configuracoes removed
 import SupportChat from "./pages/SupportChat";
 import MinhaEquipe from "./pages/MinhaEquipe";
 import Landing from "./pages/Landing";
