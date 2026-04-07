@@ -476,6 +476,7 @@ export type Database = {
         | "concorrente"
         | "dados_incorretos"
         | "sem_perfil"
+        | "outros"
       payment_status: "pendente" | "pago" | "atrasado"
     }
     CompositeTypes: {
@@ -625,6 +626,7 @@ export const Constants = {
         "concorrente",
         "dados_incorretos",
         "sem_perfil",
+        "outros",
       ],
       payment_status: ["pendente", "pago", "atrasado"],
     },

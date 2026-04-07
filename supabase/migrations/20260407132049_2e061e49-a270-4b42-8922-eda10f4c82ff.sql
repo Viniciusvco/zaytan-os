@@ -1,0 +1,1 @@
+ALTER TYPE public.loss_reason_type ADD VALUE IF NOT EXISTS 'outros';
