@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, MessageSquare, Phone, Mail, ExternalLink } from "lucide-react";
+import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
