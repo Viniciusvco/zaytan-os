@@ -58,7 +58,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [colaboradorType, setColaboradorType] = useState<ColaboradorSubtype>("gestor");
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(true);
-  const [feedbackPending, setFeedbackPending] = useState(true);
+  const [feedbackPending, setFeedbackPending] = useState(false);
 
   useEffect(() => {
     if (profile) {
