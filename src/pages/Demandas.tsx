@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRole } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, AlertTriangle, CheckCircle2, Clock, MessageSquare } from "lucide-react";
+import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
@@ -80,9 +81,11 @@ const Demandas = () => {
     // CS sees all
   }
 
-  const moveDemand = (id: string, newStatus: DemandStatus) => {
+  const moveDemand = useCallback((id: string, newStatus: DemandStatus) => {
     setDemands(prev => prev.map(d => d.id === id ? { ...d, status: newStatus } : d));
-  };
+  }, []);
+
+  const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<DemandStatus>(moveDemand);
 
   const handleAdd = () => {
     if (!newDemand.title.trim()) return;
@@ -112,7 +115,13 @@ const Demandas = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statusColumns.map(col => (
-          <div key={col.key} className="kanban-column">
+          <div
+            key={col.key}
+            className={`kanban-column transition-colors ${dragOverCol === col.key ? "ring-2 ring-primary/30 bg-primary/5" : ""}`}
+            onDragOver={e => handleDragOver(e, col.key)}
+            onDragLeave={handleDragLeave}
+            onDrop={e => handleDrop(e, col.key)}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold">{col.label}</h3>
               <span className={`text-xs px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>
@@ -129,7 +138,13 @@ const Demandas = () => {
                 const isStale = daysOpen > 3 && demand.status !== "concluido";
 
                 return (
-                  <div key={demand.id} className={`kanban-card ${typeBorderColors[demand.type]} ${isStale ? "shadow-primary/10 shadow-md" : ""}`}>
+                  <div
+                    key={demand.id}
+                    draggable
+                    onDragStart={e => handleDragStart(e, demand.id)}
+                    onDragEnd={handleDragEnd}
+                    className={`kanban-card ${typeBorderColors[demand.type]} ${isStale ? "shadow-primary/10 shadow-md" : ""} cursor-grab active:cursor-grabbing ${draggedId === demand.id ? "opacity-40" : ""}`}
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${pri.className} inline-flex items-center gap-1`}>
                         <PriIcon className="h-3 w-3" /> {pri.label}

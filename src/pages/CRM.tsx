@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, MessageSquare, Phone, Mail, ExternalLink } from "lucide-react";
+import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
@@ -79,6 +80,14 @@ const CRM = () => {
       setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, stage } : l));
     }
   };
+
+  const handleDnDMove = useCallback((id: string, newStage: LeadStage) => {
+    const lead = leads.find(l => l.id === id);
+    if (!lead || lead.stage === newStage) return;
+    moveLead(lead, newStage);
+  }, [leads]);
+
+  const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<LeadStage>(handleDnDMove);
 
   const addNote = () => {
     if (!selectedLead || !newNote.trim()) return;
@@ -163,7 +172,13 @@ const CRM = () => {
       {/* Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto">
         {stageColumns.map(col => (
-          <div key={col.key} className="kanban-column min-w-[220px]">
+          <div
+            key={col.key}
+            className={`kanban-column min-w-[220px] transition-colors ${dragOverCol === col.key ? "ring-2 ring-primary/30 bg-primary/5" : ""}`}
+            onDragOver={e => handleDragOver(e, col.key)}
+            onDragLeave={handleDragLeave}
+            onDrop={e => handleDrop(e, col.key)}
+          >
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold">{col.label}</h3>
               <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>
@@ -172,7 +187,14 @@ const CRM = () => {
             </div>
             <div className="space-y-2">
               {leads.filter(l => l.stage === col.key).map(lead => (
-                <div key={lead.id} className="kanban-card cursor-pointer" onClick={() => setSelectedLead(lead)}>
+                <div
+                  key={lead.id}
+                  draggable
+                  onDragStart={e => handleDragStart(e, lead.id)}
+                  onDragEnd={handleDragEnd}
+                  className={`kanban-card cursor-grab active:cursor-grabbing ${draggedId === lead.id ? "opacity-40" : ""}`}
+                  onClick={() => setSelectedLead(lead)}
+                >
                   <h4 className="text-sm font-medium mb-1">{lead.name}</h4>
                   <p className="text-xs text-muted-foreground mb-1">{lead.source}</p>
                   {lead.campaign && <p className="text-[10px] text-primary mb-1">{lead.campaign}</p>}
