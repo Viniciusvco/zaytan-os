@@ -22,7 +22,9 @@ const subtypeLabels: Record<ColaboradorSubtype, string> = {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useState(false);
   const { role, setRole, colaboradorType, setColaboradorType, currentUser, trainingComplete } = useRole();
+  const { signOut, profile } = useAuth();
   const [showSimulator, setShowSimulator] = useState(false);
+  const isRealAdmin = profile?.role === "admin";
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
