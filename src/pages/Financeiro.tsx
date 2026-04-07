@@ -133,7 +133,7 @@ const Financeiro = () => {
   const totalReceita = receitas.reduce((s: number, r: any) => s + Number(r.amount), 0);
   const totalDespesa = despesas.reduce((s: number, r: any) => s + Number(r.amount), 0);
 
-  const RecordForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
+  const renderFormFields = (data: any, onChange: (d: any) => void) => (
     <div className="space-y-3">
       <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.type} onChange={e => onChange({ ...data, type: e.target.value })}>
         <option value="receita">Receita</option><option value="despesa">Despesa</option>
