@@ -187,7 +187,14 @@ const CRM = () => {
             </div>
             <div className="space-y-2">
               {leads.filter(l => l.stage === col.key).map(lead => (
-                <div key={lead.id} className="kanban-card cursor-pointer" onClick={() => setSelectedLead(lead)}>
+                <div
+                  key={lead.id}
+                  draggable
+                  onDragStart={e => handleDragStart(e, lead.id)}
+                  onDragEnd={handleDragEnd}
+                  className={`kanban-card cursor-grab active:cursor-grabbing ${draggedId === lead.id ? "opacity-40" : ""}`}
+                  onClick={() => setSelectedLead(lead)}
+                >
                   <h4 className="text-sm font-medium mb-1">{lead.name}</h4>
                   <p className="text-xs text-muted-foreground mb-1">{lead.source}</p>
                   {lead.campaign && <p className="text-[10px] text-primary mb-1">{lead.campaign}</p>}
