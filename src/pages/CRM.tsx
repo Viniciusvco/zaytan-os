@@ -290,7 +290,7 @@ const CRM = () => {
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4" />Leads por Vendedor</h3>
             <div className="h-[220px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leadsBySellerData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                <BarChart data={leadsBySellerData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }} className="my-[41px] pr-[25px]">
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={50} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
