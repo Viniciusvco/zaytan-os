@@ -277,8 +277,8 @@ const CRM = () => {
           <p className="text-2xl font-bold">{filteredLeads.length}</p>
           <p className="text-xs text-muted-foreground">Total de Leads</p>
         </div>
-        <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">Fechados</p></div>
-        <div className="metric-card"><p className="text-2xl font-bold text-primary">R$ {pipelineValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">No Pipeline</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-success">{closedCount}</p><p className="text-xs text-muted-foreground">Leads Fechados</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-destructive">{lostCount}</p><p className="text-xs text-muted-foreground">Leads Perdidos</p></div>
         <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
       </div>
 
