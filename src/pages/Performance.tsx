@@ -56,6 +56,23 @@ const statusConfig = {
   saudavel: { label: "Saudável", className: "bg-success/10 text-success", icon: CheckCircle2 },
 };
 
+function generateActionPlan(c: CampaignData, rules: RuleResult[]): string {
+  const actions: string[] = [];
+  for (const r of rules) {
+    if (r.metric === "CTR" && r.level === "critico") actions.push("Trocar criativos urgentemente. Testar novos hooks e CTAs.");
+    else if (r.metric === "CTR" && r.level === "atencao") actions.push("Testar variações de criativos para melhorar CTR.");
+    if (r.metric === "Frequência" && r.level === "critico") actions.push("Saturação de público. Expandir audiência ou criar novos conjuntos.");
+    else if (r.metric === "Frequência") actions.push("Monitorar frequência. Considerar rotação de criativos.");
+    if (r.metric === "CPM" && r.level === "critico") actions.push("CPM elevado. Revisar segmentação e testar posicionamentos.");
+    if (r.metric === "CPL" && r.level === "critico") actions.push("CPL muito alto. Revisar funil, LP e qualificação do público.");
+    else if (r.metric === "CPL") actions.push("CPL acima do ideal. Otimizar copy e segmentação.");
+    if (r.metric === "Orçamento" && r.level === "critico") actions.push("Budget acima do ritmo. Reduzir gasto diário ou pausar conjuntos com baixo ROAS.");
+    if (r.metric === "Leads" && r.level === "critico") actions.push("Leads muito abaixo da meta. Escalar budget em conjuntos que performam.");
+  }
+  if (actions.length === 0) return "Performance saudável. Manter estratégia atual e monitorar.";
+  return actions.join(" ");
+}
+
 const Performance = () => {
   const { role } = useRole();
   const [dateRange, setDateRange] = useState(useDefaultDateRange());
