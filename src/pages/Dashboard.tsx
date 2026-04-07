@@ -539,7 +539,7 @@ const Dashboard = () => {
       </ComingSoon>
     );
   }
-  return <AdminDashboard />;
+  return <Navigate to="/financeiro" replace />;
 };
 
 export default Dashboard;
