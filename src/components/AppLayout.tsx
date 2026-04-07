@@ -42,7 +42,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <header className="h-12 flex items-center justify-between border-b border-border px-4 shrink-0">
             <SidebarTrigger />
             <div className="flex items-center gap-3">
-              {/* Role Switcher */}
+              {/* Role Switcher - only for real admins */}
+              {isRealAdmin && (
               <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
                 {(["admin", "colaborador", "cliente"] as UserRole[]).map((r) => {
                   const cfg = roleConfig[r];
@@ -56,6 +57,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   );
                 })}
               </div>
+              )}
 
               {role === "colaborador" && (
                 <select
