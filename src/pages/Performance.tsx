@@ -159,7 +159,7 @@ const Performance = () => {
                         <input
                           autoFocus
                           className="w-full h-8 px-2 rounded bg-muted border-0 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
-                          value={diagnoses[c.id] || ""}
+                          value={diagnoses[c.id] ?? generateActionPlan(c, c.rules)}
                           onChange={e => setDiagnoses(prev => ({ ...prev, [c.id]: e.target.value }))}
                           onBlur={() => setEditingId(null)}
                           onKeyDown={e => e.key === "Enter" && setEditingId(null)}
@@ -167,7 +167,7 @@ const Performance = () => {
                         />
                       ) : (
                         <button onClick={() => setEditingId(c.id)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 w-full text-left">
-                          {diagnoses[c.id] || <span className="italic opacity-50 flex items-center gap-1"><Pencil className="h-3 w-3" />Clique para adicionar</span>}
+                          {diagnoses[c.id] || generateActionPlan(c, c.rules)}
                         </button>
                       )}
                     </td>

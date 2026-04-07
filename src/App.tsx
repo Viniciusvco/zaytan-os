@@ -53,7 +53,7 @@ const App = () => (
                   <Route path="/usuarios" element={<Usuarios />} />
                   <Route path="/academy" element={<Academy />} />
                   <Route path="/feedbacks" element={<Feedbacks />} />
-                  <Route path="/configuracoes" element={<Configuracoes />} />
+                  {/* Configuracoes route removed */}
                   <Route path="/suporte" element={<SupportChat />} />
                   <Route path="/minha-equipe" element={<MinhaEquipe />} />
                   <Route path="*" element={<NotFound />} />
