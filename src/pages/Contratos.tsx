@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle } from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle, RefreshCw, PieChart } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { DateRangeFilter, useDefaultDateRange } from "@/components/DateRangeFilt
 import { ContextFilters } from "@/components/ContextFilters";
 import { toast } from "sonner";
 import type { Tables } from "@/integrations/supabase/types";
+import { Progress } from "@/components/ui/progress";
 
 type ContractStatus = "rascunho" | "ativo" | "cancelado" | "aguardando";
 
@@ -97,6 +98,46 @@ const Contratos = () => {
   const activeContracts = contracts.filter((c: any) => c.status === "ativo");
   const totalMRR = activeContracts.reduce((s: number, c: any) => s + Number(c.mrr_value || 0), 0);
   const expiringCount = activeContracts.filter((c: any) => { const d = daysUntilDate(c.end_date); return d <= 30 && d > 0; }).length;
+
+  // Lead distribution calculation (preview)
+  const investmentByClient: Record<string, { name: string; investment: number }> = {};
+  activeContracts.forEach((c: any) => {
+    const cid = c.client_id;
+    const name = c.clients?.name || "—";
+    if (!investmentByClient[cid]) investmentByClient[cid] = { name, investment: 0 };
+    investmentByClient[cid].investment += Number(c.weekly_investment || 0);
+  });
+  const totalWeeklyInvestment = Object.values(investmentByClient).reduce((s, c) => s + c.investment, 0);
+  const distributionPreview = Object.entries(investmentByClient)
+    .filter(([_, v]) => v.investment > 0)
+    .map(([cid, v]) => ({
+      client_id: cid,
+      name: v.name,
+      investment: v.investment,
+      percentage: totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0,
+    }));
+
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<any>(null);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("distribute-leads");
+      if (error) throw error;
+      setSyncResult(data);
+      if (data?.total_inserted > 0) {
+        toast.success(`${data.total_inserted} leads distribuídos com sucesso!`);
+      } else {
+        toast.info(data?.message || "Nenhum lead novo para distribuir");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao sincronizar leads");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const ContractForm = ({ data, onChange }: { data: any; onChange: (d: any) => void }) => (
     <div className="space-y-3">
@@ -203,6 +244,70 @@ const Contratos = () => {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Lead Distribution Panel */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+              <PieChart className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Distribuição de Leads</h3>
+              <p className="text-xs text-muted-foreground">Proporcional ao investimento semanal de cada cliente</p>
+            </div>
+          </div>
+          <Button onClick={handleSync} disabled={syncing || distributionPreview.length === 0} variant="outline" size="sm">
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Sincronizar Leads Externos"}
+          </Button>
+        </div>
+
+        {distributionPreview.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Nenhum contrato ativo com investimento semanal configurado.
+            <br />
+            <span className="text-xs">Defina o "Invest. Semanal" nos contratos ativos para ativar a distribuição.</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
+              <span>Cliente</span>
+              <span className="text-right">Investimento Semanal</span>
+              <span className="text-right">% dos Leads</span>
+              <span>Distribuição</span>
+            </div>
+            {distributionPreview.map((d) => (
+              <div key={d.client_id} className="grid grid-cols-4 gap-2 items-center">
+                <span className="text-sm font-medium truncate">{d.name}</span>
+                <span className="text-sm text-right">R$ {d.investment.toLocaleString()}</span>
+                <span className="text-sm text-right font-semibold text-primary">{d.percentage.toFixed(1)}%</span>
+                <Progress value={d.percentage} className="h-2" />
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              <span className="text-xs font-semibold text-muted-foreground">Total Investimento Semanal</span>
+              <span className="text-sm font-bold">R$ {totalWeeklyInvestment.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {syncResult && syncResult.distribution && (
+          <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
+            <h4 className="text-xs font-semibold mb-2">
+              {syncResult.total_inserted > 0
+                ? `✅ ${syncResult.total_inserted} leads distribuídos`
+                : "ℹ️ Nenhum lead novo"}
+            </h4>
+            {syncResult.distribution.map((d: any) => (
+              <div key={d.client_id} className="flex items-center justify-between text-xs py-1">
+                <span>{d.client_name}</span>
+                <span className="font-semibold">{d.leads_assigned} leads ({d.percentage.toFixed(1)}%)</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Contrato</DialogTitle></DialogHeader>
