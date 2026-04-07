@@ -125,7 +125,7 @@ const CRM = () => {
         <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">Fechados</p></div>
         <div className="metric-card"><p className="text-2xl font-bold text-primary">R$ {pipelineValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">No Pipeline</p></div>
         <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
-        {(isAdmin || isClient) && (
+        {isClient && (
           <div className="metric-card"><p className="text-2xl font-bold text-info">R$ {ticketMedio.toLocaleString()}</p><p className="text-xs text-muted-foreground">Ticket Médio</p></div>
         )}
       </div>
