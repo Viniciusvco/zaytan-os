@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export type UserRole = "admin" | "colaborador" | "cliente";
 export type ColaboradorSubtype = "gestor" | "designer" | "cs";
-export type LossReason = "nao_atende" | "sem_interesse" | "concorrente" | "dados_incorretos" | "sem_perfil";
+export type LossReason = "nao_atende" | "sem_interesse" | "concorrente" | "dados_incorretos" | "sem_perfil" | "outros";
 
 export const lossReasonLabels: Record<LossReason, string> = {
   nao_atende: "NÃO ATENDE / NÃO RESPONDE",
@@ -11,6 +11,7 @@ export const lossReasonLabels: Record<LossReason, string> = {
   concorrente: "FECHOU COM CONCORRENTE",
   dados_incorretos: "DADOS INCORRETOS",
   sem_perfil: "SEM PERFIL FINANCEIRO",
+  outros: "OUTROS",
 };
 
 export type PaymentStatus = "em_dia" | "atrasado" | "inadimplente";
