@@ -213,7 +213,7 @@ const Contratos = () => {
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight">Gestão de Contratos</h1><p className="text-sm text-muted-foreground mt-1">Lifecycle completo</p></div>
+        <div><h1 className="text-2xl font-bold tracking-tight">Motor Revisional</h1><p className="text-sm text-muted-foreground mt-1">Lifecycle completo</p></div>
         <div className="flex items-center gap-2">
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
           <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Contrato</Button>
