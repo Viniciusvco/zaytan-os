@@ -114,10 +114,10 @@ const CRM = () => {
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{isClient ? "Meus Leads" : "CRM — Prospecção de Novos Clientes"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{isClient ? `${leads.length} leads no pipeline` : "Pipeline de prospecção da agência"}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{isAdmin ? "CRM — Pipeline Geral" : "CRM — Gestão de Leads"}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{isAdmin ? "Visão geral do pipeline da agência" : `${leads.length} leads no pipeline`}</p>
         </div>
-        {!isClient && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
+        {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
       </div>
 
       {/* Metrics */}
