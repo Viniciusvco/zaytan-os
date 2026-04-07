@@ -277,6 +277,11 @@ const CRM = () => {
       </Dialog>
     </div>
   );
+
+  if (role === "colaborador") {
+    return <ComingSoon>{content}</ComingSoon>;
+  }
+  return content;
 };
 
 export default CRM;
