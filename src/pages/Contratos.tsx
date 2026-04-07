@@ -246,7 +246,70 @@ const Contratos = () => {
         </table>
       </div>
 
-      <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Contrato</DialogTitle></DialogHeader>
+      {/* Lead Distribution Panel */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+              <PieChart className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Distribuição de Leads</h3>
+              <p className="text-xs text-muted-foreground">Proporcional ao investimento semanal de cada cliente</p>
+            </div>
+          </div>
+          <Button onClick={handleSync} disabled={syncing || distributionPreview.length === 0} variant="outline" size="sm">
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Sincronizar Leads Externos"}
+          </Button>
+        </div>
+
+        {distributionPreview.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground text-sm">
+            Nenhum contrato ativo com investimento semanal configurado.
+            <br />
+            <span className="text-xs">Defina o "Invest. Semanal" nos contratos ativos para ativar a distribuição.</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
+              <span>Cliente</span>
+              <span className="text-right">Investimento Semanal</span>
+              <span className="text-right">% dos Leads</span>
+              <span>Distribuição</span>
+            </div>
+            {distributionPreview.map((d) => (
+              <div key={d.client_id} className="grid grid-cols-4 gap-2 items-center">
+                <span className="text-sm font-medium truncate">{d.name}</span>
+                <span className="text-sm text-right">R$ {d.investment.toLocaleString()}</span>
+                <span className="text-sm text-right font-semibold text-primary">{d.percentage.toFixed(1)}%</span>
+                <Progress value={d.percentage} className="h-2" />
+              </div>
+            ))}
+            <div className="flex items-center justify-between pt-3 border-t border-border">
+              <span className="text-xs font-semibold text-muted-foreground">Total Investimento Semanal</span>
+              <span className="text-sm font-bold">R$ {totalWeeklyInvestment.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+
+        {syncResult && syncResult.distribution && (
+          <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
+            <h4 className="text-xs font-semibold mb-2">
+              {syncResult.total_inserted > 0
+                ? `✅ ${syncResult.total_inserted} leads distribuídos`
+                : "ℹ️ Nenhum lead novo"}
+            </h4>
+            {syncResult.distribution.map((d: any) => (
+              <div key={d.client_id} className="flex items-center justify-between text-xs py-1">
+                <span>{d.client_name}</span>
+                <span className="font-semibold">{d.leads_assigned} leads ({d.percentage.toFixed(1)}%)</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
         <ContractForm data={form} onChange={setForm} />
         <DialogFooter><Button onClick={() => { if (form.client_id && form.title) createMut.mutate(form); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Criar Contrato"}</Button></DialogFooter>
       </DialogContent></Dialog>
