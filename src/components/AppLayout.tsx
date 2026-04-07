@@ -108,6 +108,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <button onClick={() => setDark(!dark)} className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors">
                 {dark ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
               </button>
+              <button onClick={signOut} className="h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors" title="Sair">
+                <LogOut className="h-4 w-4 text-muted-foreground" />
+              </button>
             </div>
           </header>
           <main className="flex-1 overflow-auto p-6">
