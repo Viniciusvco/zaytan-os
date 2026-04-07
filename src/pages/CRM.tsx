@@ -33,11 +33,16 @@ const CRM = () => {
   const [lossReason, setLossReason] = useState<LossReason>("nao_atende");
   const [lossNote, setLossNote] = useState("");
 
-  // Filters
+  // Filters - default to current month
   const [clientFilter, setClientFilter] = useState("all");
   const [sellerFilter, setSellerFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const now = new Date();
+  const [dateFrom, setDateFrom] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
+  const [dateTo, setDateTo] = useState(now.toISOString().split("T")[0]);
+
+  // Edit sale value on closed leads
+  const [editValueTarget, setEditValueTarget] = useState<any>(null);
+  const [editValue, setEditValue] = useState(0);
 
   // Seller tag management
   const [showTagDialog, setShowTagDialog] = useState<any>(null);
