@@ -12,7 +12,9 @@ import { toast } from "sonner";
 type FinancialType = "receita" | "despesa";
 type PaymentStatus = "pendente" | "pago" | "atrasado";
 
-const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "" };
+const emptyForm = { amount: 0, type: "receita" as FinancialType, status: "pendente" as PaymentStatus, description: "", category: "", client_id: "", due_date: "", is_mrr: false };
+
+const emptyMrrForm = { client_id: "", mrr_value: 0, description: "MRR" };
 
 const Financeiro = () => {
   const qc = useQueryClient();
