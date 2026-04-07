@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw } from "lucide-react";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -157,6 +157,26 @@ const CRM = () => {
   const canAddLeads = isAdmin;
   const showChart = isAdmin;
 
+  const [syncing, setSyncing] = useState(false);
+  const syncLeads = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("distribute-leads");
+      if (error) throw error;
+      qc.invalidateQueries({ queryKey: ["leads"] });
+      const result = data as any;
+      if (result?.total_inserted > 0) {
+        toast.success(`${result.total_inserted} novos leads sincronizados!`);
+      } else {
+        toast.info(result?.message || "Nenhum lead novo encontrado.");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao sincronizar: " + (e.message || "Tente novamente"));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // CSV Export
   const exportCSV = () => {
     const headers = ["Nome", "Email", "Telefone", "Status", "Vendedor", "Tipo Financiamento", "Valor Parcelas", "Valor", "Data Entrada", "Origem"];
@@ -198,6 +218,10 @@ const CRM = () => {
           <p className="text-sm text-muted-foreground mt-1">{filteredLeads.length} leads no pipeline</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={syncLeads} disabled={syncing}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Carregar Leads"}
+          </Button>
           {isClient && <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Exportar CSV</Button>}
           {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
         </div>
