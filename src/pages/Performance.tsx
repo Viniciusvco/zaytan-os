@@ -130,7 +130,7 @@ const Performance = () => {
               <th className="text-right text-xs font-medium text-muted-foreground pb-2">Budget</th>
               <th className="text-center text-xs font-medium text-muted-foreground pb-2">Status</th>
               <th className="text-left text-xs font-medium text-muted-foreground pb-2 pl-4">Alertas</th>
-              <th className="text-left text-xs font-medium text-muted-foreground pb-2 min-w-[200px]">Diagnóstico & Plano de Ação</th>
+              <th className="text-left text-xs font-medium text-muted-foreground pb-2 w-[180px] max-w-[220px]">Diagnóstico & Plano de Ação</th>
             </tr></thead>
             <tbody>
               {ranked.map((c, i) => {
@@ -154,7 +154,7 @@ const Performance = () => {
                         {c.rules.length === 0 && <p className="text-[10px] text-success">Tudo OK</p>}
                       </div>
                     </td>
-                    <td className="py-3 min-w-[200px]">
+                    <td className="py-3 w-[180px] max-w-[220px]">
                       {editingId === c.id ? (
                         <input
                           autoFocus

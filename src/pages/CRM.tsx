@@ -101,6 +101,10 @@ const CRM = () => {
 
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
+  // Swapped: Client gets full CRM (add leads, notes, chart), Admin gets simplified pipeline
+  const canAddLeads = isClient;
+  const canAddNotes = isClient;
+  const showChart = isClient;
 
   // Ticket médio
   const fechados = leads.filter(l => l.stage === "fechado");
@@ -110,24 +114,24 @@ const CRM = () => {
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{isClient ? "Meus Leads" : "CRM — Prospecção de Novos Clientes"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{isClient ? `${leads.length} leads no pipeline` : "Pipeline de prospecção da agência"}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{isAdmin ? "CRM — Pipeline Geral" : "CRM — Gestão de Leads"}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{isAdmin ? "Visão geral do pipeline da agência" : `${leads.length} leads no pipeline`}</p>
         </div>
-        {!isClient && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
+        {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
       </div>
 
       {/* Metrics */}
-      <div className={`grid gap-4 ${isAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+      <div className={`grid gap-4 ${isClient ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
         <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">Fechados</p></div>
         <div className="metric-card"><p className="text-2xl font-bold text-primary">R$ {pipelineValue.toLocaleString()}</p><p className="text-xs text-muted-foreground">No Pipeline</p></div>
         <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
-        {(isAdmin || isClient) && (
+        {isClient && (
           <div className="metric-card"><p className="text-2xl font-bold text-info">R$ {ticketMedio.toLocaleString()}</p><p className="text-xs text-muted-foreground">Ticket Médio</p></div>
         )}
       </div>
 
       {/* Lead Quality Chart (Admin only) */}
-      {isAdmin && lossBreakdown.length > 0 && (
+      {showChart && lossBreakdown.length > 0 && (
         <div className="metric-card">
           <h3 className="text-sm font-semibold mb-3">Qualidade de Leads — Motivos de Perda</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
@@ -246,7 +250,7 @@ const CRM = () => {
                     {selectedLead.notes.length === 0 && <p className="text-xs text-muted-foreground">Sem registros.</p>}
                     {selectedLead.notes.map((n, i) => <div key={i} className="bg-muted rounded p-2 text-xs">{n}</div>)}
                   </div>
-                  {!isClient && (
+                  {canAddNotes && (
                     <div className="flex gap-2 mt-2">
                       <input className="flex-1 h-8 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Adicionar nota..." value={newNote} onChange={e => setNewNote(e.target.value)} onKeyDown={e => e.key === "Enter" && addNote()} />
                       <Button size="sm" variant="outline" onClick={addNote}>+</Button>
