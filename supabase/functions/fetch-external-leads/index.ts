@@ -31,7 +31,6 @@ Deno.serve(async (req) => {
     let query = externalSupabase
       .from("leads_laportec_star5")
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (status) {
