@@ -127,6 +127,7 @@ const Financeiro = () => {
         <div><h1 className="text-2xl font-bold tracking-tight">Financial Intelligence</h1><p className="text-sm text-muted-foreground mt-1">Receitas, custos e margem real</p></div>
         <div className="flex items-center gap-2">
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <Button variant="outline" onClick={() => setShowMrr(true)}><DollarSign className="h-4 w-4 mr-1" /> Cadastrar MRR</Button>
           <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lançamento</Button>
         </div>
       </div>
