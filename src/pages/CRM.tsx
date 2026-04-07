@@ -155,7 +155,7 @@ const CRM = () => {
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
   const canAddLeads = isAdmin;
-  const showChart = isAdmin;
+  const showChart = isAdmin || isClient;
 
   const [syncing, setSyncing] = useState(false);
   const syncLeads = async () => {
