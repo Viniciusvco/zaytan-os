@@ -218,6 +218,10 @@ const CRM = () => {
           <p className="text-sm text-muted-foreground mt-1">{filteredLeads.length} leads no pipeline</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={syncLeads} disabled={syncing}>
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sincronizando..." : "Carregar Leads"}
+          </Button>
           {isClient && <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Exportar CSV</Button>}
           {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
         </div>
