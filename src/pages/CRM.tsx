@@ -172,9 +172,11 @@ const CRM = () => {
 
   const { draggedId, dragOverCol, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleDragEnd } = useKanbanDnD<LeadStatus>(handleDnDMove);
 
-  const closedCount = filteredLeads.filter((l: any) => l.status === "fechado").length;
+  const closedLeads = filteredLeads.filter((l: any) => l.status === "fechado");
+  const closedCount = closedLeads.length;
   const lostCount = filteredLeads.filter((l: any) => l.status === "perdido").length;
   const conversionRate = filteredLeads.length > 0 ? Math.round((closedCount / filteredLeads.length) * 100) : 0;
+  const totalFaturado = closedLeads.reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
 
   const lostLeads = filteredLeads.filter((l: any) => l.status === "perdido" && l.loss_reason);
   const lossBreakdown = Object.entries(lossReasonLabels).map(([key, label]) => ({
