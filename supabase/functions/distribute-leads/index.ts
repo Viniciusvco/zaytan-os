@@ -11,12 +11,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Internal Supabase (Lovable Cloud)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // External Supabase
     const externalUrl = Deno.env.get("EXTERNAL_SUPABASE_URL");
     const externalKey = Deno.env.get("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY");
 
@@ -29,7 +27,6 @@ Deno.serve(async (req) => {
 
     const externalSupabase = createClient(externalUrl, externalKey);
 
-    // 1. Get all active contracts with weekly_investment > 0
     const { data: contracts, error: contractsError } = await supabase
       .from("contracts")
       .select("client_id, weekly_investment, clients(id, name)")
@@ -48,7 +45,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Aggregate investment per client (a client may have multiple contracts)
     const clientInvestments: Record<string, { name: string; investment: number }> = {};
     for (const c of contracts) {
       const cid = c.client_id;
@@ -66,8 +62,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 2. Fetch external leads that haven't been synced yet
-    // Get already synced lead IDs (stored in notes field as external ID)
     const { data: existingLeads } = await supabase
       .from("leads")
       .select("notes")
@@ -84,7 +78,6 @@ Deno.serve(async (req) => {
         .filter(Boolean)
     );
 
-    // Fetch all external leads
     const { data: externalLeads, error: extError } = await externalSupabase
       .from("leads_laportec_star5")
       .select("*");
@@ -95,14 +88,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Filter out already synced
     const newLeads = (externalLeads || []).filter(
       (l) => !syncedIds.has(String(l["ID Lead"]))
     );
 
+    const clientIds = Object.keys(clientInvestments);
+
     if (newLeads.length === 0) {
-      // Return current distribution preview even if no new leads
-      const clientIds = Object.keys(clientInvestments);
       const distribution = clientIds.map((cid) => ({
         client_id: cid,
         client_name: clientInvestments[cid].name,
@@ -117,38 +109,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Distribute leads proportionally
     const totalLeads = newLeads.length;
-    const clientIds = Object.keys(clientInvestments);
 
-    // Calculate raw shares
     const shares: { clientId: string; raw: number; rounded: number }[] = clientIds.map((cid) => {
       const pct = clientInvestments[cid].investment / totalInvestment;
       return { clientId: cid, raw: pct * totalLeads, rounded: Math.floor(pct * totalLeads) };
     });
 
-    // Distribute remainder to client(s) with largest fractional parts
     let distributed = shares.reduce((s, sh) => s + sh.rounded, 0);
     let remainder = totalLeads - distributed;
 
-    // Sort by fractional part descending
     const byFraction = [...shares].sort((a, b) => (b.raw - b.rounded) - (a.raw - a.rounded));
     for (let i = 0; i < remainder; i++) {
       byFraction[i % byFraction.length].rounded++;
     }
 
-    // Build assignment map
     const assignmentMap: Record<string, number> = {};
     for (const sh of shares) {
       assignmentMap[sh.clientId] = sh.rounded;
     }
 
-    // 4. Assign leads round-robin per client allocation
     const leadsToInsert: any[] = [];
     const clientQueues: Record<string, number> = { ...assignmentMap };
 
     for (const lead of newLeads) {
-      // Find client with most remaining allocation
       let bestClient = clientIds[0];
       let bestRemaining = 0;
       for (const cid of clientIds) {
@@ -168,10 +152,12 @@ Deno.serve(async (req) => {
         source: "leads_laportec_star5",
         status: "novo",
         notes: `ext_id:${lead["ID Lead"]}`,
+        financing_type: lead["Qual tipo de financiamento"] || null,
+        installment_value: lead["Valor das parcelas"] || null,
+        lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
       });
     }
 
-    // 5. Insert leads in batches
     const BATCH_SIZE = 50;
     let insertedCount = 0;
     for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
@@ -186,7 +172,6 @@ Deno.serve(async (req) => {
       insertedCount += batch.length;
     }
 
-    // 6. Build distribution summary
     const distribution = clientIds.map((cid) => ({
       client_id: cid,
       client_name: clientInvestments[cid].name,

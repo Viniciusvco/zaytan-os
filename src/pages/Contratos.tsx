@@ -153,9 +153,12 @@ const Contratos = () => {
           <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.end_date || ""} onChange={e => onChange({ ...data, end_date: e.target.value })} /></div>
       </div>
       <div className="grid grid-cols-3 gap-3">
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Setup (R$)" value={data.setup_value || ""} onChange={e => onChange({ ...data, setup_value: Number(e.target.value) })} />
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="MRR (R$)" value={data.mrr_value || ""} onChange={e => onChange({ ...data, mrr_value: Number(e.target.value) })} />
-        <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Invest. Semanal (R$)" value={data.weekly_investment || ""} onChange={e => onChange({ ...data, weekly_investment: Number(e.target.value) })} />
+        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Setup (R$)</label>
+          <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.setup_value || ""} onChange={e => onChange({ ...data, setup_value: Number(e.target.value) })} onFocus={e => e.target.select()} /></div>
+        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">MRR (R$)</label>
+          <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.mrr_value || ""} onChange={e => onChange({ ...data, mrr_value: Number(e.target.value) })} onFocus={e => e.target.select()} /></div>
+        <div><label className="text-[10px] text-muted-foreground font-medium mb-1 block">Invest. Semanal (R$)</label>
+          <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.weekly_investment || ""} onChange={e => onChange({ ...data, weekly_investment: Number(e.target.value) })} onFocus={e => e.target.select()} /></div>
       </div>
       <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.status} onChange={e => onChange({ ...data, status: e.target.value })}>
         <option value="rascunho">Rascunho</option><option value="aguardando">Aguardando Assinatura</option><option value="ativo">Ativo</option><option value="cancelado">Cancelado</option>

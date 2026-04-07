@@ -58,7 +58,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [colaboradorType, setColaboradorType] = useState<ColaboradorSubtype>("gestor");
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [trainingComplete, setTrainingComplete] = useState(true);
-  const [feedbackPending, setFeedbackPending] = useState(true);
+  const [feedbackPending, setFeedbackPending] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -70,7 +70,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }, [profile]);
 
   const whiteLabel = { primaryColor: "#FF6E27", companyName: "Zaytan" };
-  const clientPaymentStatus: PaymentStatus = "inadimplente";
+  // Default to "em_dia" — only show banners when there's actual payment issues
+  const clientPaymentStatus: PaymentStatus = "em_dia";
 
   const currentUser = profile
     ? { name: profile.full_name, email: profile.email }

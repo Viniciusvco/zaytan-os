@@ -18,7 +18,7 @@ import { Progress } from "@/components/ui/progress";
 function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }) {
   const [dateRange, setDateRange] = useState(useDefaultDateRange());
 
-  const { data: leads = [] } = useQuery({
+  const { data: leads = [], isLoading: leadsLoading } = useQuery({
     queryKey: ["client-leads"],
     queryFn: async () => {
       const { data, error } = await supabase.from("leads").select("*").order("created_at", { ascending: false });
@@ -65,8 +65,8 @@ function ClientDashboard({ onboardingComplete }: { onboardingComplete: boolean }
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center"><Rocket className="h-5 w-5 text-primary" /></div>
             <div><h3 className="text-sm font-bold">Complete seu Onboarding</h3><p className="text-xs text-muted-foreground">Finalize a configuração para começar</p></div>
           </div>
-          <Progress value={30} className="h-2 mb-2" />
-          <p className="text-[10px] text-muted-foreground">3 de 7 etapas concluídas</p>
+          <Progress value={0} className="h-2 mb-2" />
+          <p className="text-[10px] text-muted-foreground">0 de 4 etapas concluídas</p>
           <a href="/onboarding" className="text-xs text-primary font-medium hover:underline mt-2 inline-block">Continuar Onboarding →</a>
         </div>
       )}

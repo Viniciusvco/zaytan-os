@@ -276,11 +276,15 @@ export type Database = {
           client_id: string
           created_at: string
           email: string | null
+          financing_type: string | null
           id: string
+          installment_value: string | null
+          lead_entry_date: string | null
           loss_reason: Database["public"]["Enums"]["loss_reason_type"] | null
           name: string
           notes: string | null
           phone: string | null
+          seller_tag: string | null
           source: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string
@@ -290,11 +294,15 @@ export type Database = {
           client_id: string
           created_at?: string
           email?: string | null
+          financing_type?: string | null
           id?: string
+          installment_value?: string | null
+          lead_entry_date?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason_type"] | null
           name: string
           notes?: string | null
           phone?: string | null
+          seller_tag?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
@@ -304,11 +312,15 @@ export type Database = {
           client_id?: string
           created_at?: string
           email?: string | null
+          financing_type?: string | null
           id?: string
+          installment_value?: string | null
+          lead_entry_date?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason_type"] | null
           name?: string
           notes?: string | null
           phone?: string | null
+          seller_tag?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string

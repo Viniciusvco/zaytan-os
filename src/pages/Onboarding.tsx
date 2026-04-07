@@ -3,8 +3,8 @@ import { Rocket, CheckCircle2, Circle, Upload, FileText, Video } from "lucide-re
 import { Progress } from "@/components/ui/progress";
 
 const steps = [
-  { id: 1, title: "Briefing da Empresa", desc: "Preencha informações sobre seu negócio", done: true, icon: FileText },
-  { id: 2, title: "Enviar Acessos", desc: "Compartilhe acessos de Meta Ads e Google", done: true, icon: Upload },
+  { id: 1, title: "Briefing da Empresa", desc: "Preencha informações sobre seu negócio", done: false, icon: FileText },
+  { id: 2, title: "Enviar Acessos", desc: "Compartilhe acessos de Meta Ads e Google", done: false, icon: Upload },
   { id: 3, title: "Assistir Vídeo de Boas-vindas", desc: "Conheça a plataforma Zaytan", done: false, icon: Video },
   { id: 4, title: "Configurar CRM", desc: "Defina etapas do seu funil de vendas", done: false, icon: Rocket },
 ];
