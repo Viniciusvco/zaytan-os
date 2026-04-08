@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3 } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search } from "lucide-react";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ const CRM = () => {
   // Filters - default to current month
   const [clientFilter, setClientFilter] = useState("all");
   const [sellerFilter, setSellerFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const now = new Date();
   const [dateFrom, setDateFrom] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
   const [dateTo, setDateTo] = useState(now.toISOString().split("T")[0]);
@@ -81,6 +82,14 @@ const CRM = () => {
     return leads.filter((l: any) => {
       if (clientFilter !== "all" && l.client_id !== clientFilter) return false;
       if (sellerFilter !== "all" && l.seller_tag !== sellerFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const match = (l.name || "").toLowerCase().includes(q) ||
+          (l.email || "").toLowerCase().includes(q) ||
+          (l.phone || "").toLowerCase().includes(q) ||
+          (l.seller_tag || "").toLowerCase().includes(q);
+        if (!match) return false;
+      }
       if (dateFrom) {
         const entryDate = l.lead_entry_date || l.created_at;
         if (entryDate < dateFrom) return false;
@@ -91,7 +100,7 @@ const CRM = () => {
       }
       return true;
     });
-  }, [leads, clientFilter, sellerFilter, dateFrom, dateTo]);
+  }, [leads, clientFilter, sellerFilter, searchQuery, dateFrom, dateTo]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, value, loss_reason, notes }: { id: string; status: LeadStatus; value?: number; loss_reason?: string; notes?: string }) => {
@@ -264,6 +273,10 @@ const CRM = () => {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input className="w-full h-9 pl-9 pr-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Buscar leads..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        </div>
         {isAdmin && (
           <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
             <option value="all">Todos os clientes</option>
@@ -282,8 +295,8 @@ const CRM = () => {
           <span className="text-xs text-muted-foreground">Até:</span>
           <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
         </div>
-        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo) && (
-          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); }}>Limpar filtros</button>
+        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo || searchQuery) && (
+          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); setSearchQuery(""); }}>Limpar filtros</button>
         )}
       </div>
 

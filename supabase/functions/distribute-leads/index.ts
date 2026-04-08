@@ -25,6 +25,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Parse body for overrides and import mode
+    let percentOverrides: Record<string, number> | undefined;
+    let importMode: "new_only" | "all" = "new_only";
+    try {
+      const body = await req.json();
+      percentOverrides = body?.percent_overrides;
+      importMode = body?.import_mode === "all" ? "all" : "new_only";
+    } catch {
+      // no body is fine
+    }
+
     const externalSupabase = createClient(externalUrl, externalKey);
 
     const { data: contracts, error: contractsError } = await supabase
@@ -62,6 +73,40 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Calculate percentages (use overrides if provided, else investment-based)
+    const clientIds = Object.keys(clientInvestments);
+    const clientPercentages: Record<string, number> = {};
+    
+    if (percentOverrides && Object.keys(percentOverrides).length > 0) {
+      // Use overrides for specified clients, auto-calc for rest
+      let overriddenTotal = 0;
+      let remainingInvestment = totalInvestment;
+      
+      for (const cid of clientIds) {
+        if (percentOverrides[cid] !== undefined) {
+          clientPercentages[cid] = percentOverrides[cid];
+          overriddenTotal += percentOverrides[cid];
+          remainingInvestment -= clientInvestments[cid].investment;
+        }
+      }
+      
+      // Auto-distribute remaining percentage to non-overridden clients
+      const remainingPercent = 100 - overriddenTotal;
+      for (const cid of clientIds) {
+        if (percentOverrides[cid] === undefined) {
+          clientPercentages[cid] = remainingInvestment > 0
+            ? (clientInvestments[cid].investment / remainingInvestment) * remainingPercent
+            : remainingPercent / clientIds.filter(id => percentOverrides[id] === undefined).length;
+        }
+      }
+    } else {
+      // Default: investment-proportional
+      for (const cid of clientIds) {
+        clientPercentages[cid] = (clientInvestments[cid].investment / totalInvestment) * 100;
+      }
+    }
+
+    // Get existing leads to check for duplicates
     const { data: existingLeads } = await supabase
       .from("leads")
       .select("notes")
@@ -88,31 +133,40 @@ Deno.serve(async (req) => {
       });
     }
 
-    const newLeads = (externalLeads || []).filter(
-      (l) => !syncedIds.has(String(l["ID Lead"]))
-    );
+    let leadsToProcess: any[];
+    if (importMode === "all") {
+      // Delete existing synced leads first, then re-import all
+      if (syncedIds.size > 0) {
+        await supabase.from("leads").delete().eq("source", "leads_laportec_star5");
+      }
+      leadsToProcess = externalLeads || [];
+    } else {
+      // Only new leads
+      leadsToProcess = (externalLeads || []).filter(
+        (l) => !syncedIds.has(String(l["ID Lead"]))
+      );
+    }
 
-    const clientIds = Object.keys(clientInvestments);
-
-    if (newLeads.length === 0) {
+    if (leadsToProcess.length === 0) {
       const distribution = clientIds.map((cid) => ({
         client_id: cid,
         client_name: clientInvestments[cid].name,
         investment: clientInvestments[cid].investment,
-        percentage: Math.round((clientInvestments[cid].investment / totalInvestment) * 10000) / 100,
+        percentage: Math.round(clientPercentages[cid] * 100) / 100,
         leads_assigned: 0,
       }));
 
       return new Response(
-        JSON.stringify({ message: "No new leads to distribute", distribution, total_new_leads: 0 }),
+        JSON.stringify({ message: "No new leads to distribute", distribution, total_new_leads: 0, total_inserted: 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const totalLeads = newLeads.length;
+    const totalLeads = leadsToProcess.length;
 
+    // Distribute leads based on percentages
     const shares: { clientId: string; raw: number; rounded: number }[] = clientIds.map((cid) => {
-      const pct = clientInvestments[cid].investment / totalInvestment;
+      const pct = clientPercentages[cid] / 100;
       return { clientId: cid, raw: pct * totalLeads, rounded: Math.floor(pct * totalLeads) };
     });
 
@@ -132,7 +186,7 @@ Deno.serve(async (req) => {
     const leadsToInsert: any[] = [];
     const clientQueues: Record<string, number> = { ...assignmentMap };
 
-    for (const lead of newLeads) {
+    for (const lead of leadsToProcess) {
       let bestClient = clientIds[0];
       let bestRemaining = 0;
       for (const cid of clientIds) {
@@ -176,7 +230,7 @@ Deno.serve(async (req) => {
       client_id: cid,
       client_name: clientInvestments[cid].name,
       investment: clientInvestments[cid].investment,
-      percentage: Math.round((clientInvestments[cid].investment / totalInvestment) * 10000) / 100,
+      percentage: Math.round(clientPercentages[cid] * 100) / 100,
       leads_assigned: assignmentMap[cid],
     }));
 
