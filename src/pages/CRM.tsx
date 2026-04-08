@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search, MoreHorizontal } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search, MoreHorizontal, FileText } from "lucide-react";
+import { LaudoGenerator } from "@/components/LaudoGenerator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -52,6 +53,7 @@ const CRM = () => {
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [laudoTarget, setLaudoTarget] = useState<any>(null);
 
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
@@ -415,13 +417,14 @@ const CRM = () => {
                     </button>
                   )}
                   {lead.loss_reason && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive mt-1 inline-block">{lossReasonLabels[lead.loss_reason as LossReason] || lead.loss_reason}</span>}
-                  <div className="flex gap-1 mt-2">
+                  <div className="flex gap-1 mt-2 flex-wrap">
                     {col.key !== "novo" && col.key !== "perdido" && (
                       <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
                     )}
                     {col.key !== "fechado" && col.key !== "perdido" && (
                       <button onClick={e => { e.stopPropagation(); const next = stageColumns[stageColumns.findIndex(c => c.key === col.key) + 1]; if (next) moveLead(lead, next.key); }} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">→</button>
                     )}
+                    <button onClick={e => { e.stopPropagation(); setLaudoTarget(lead); }} className="text-[10px] px-2 py-0.5 rounded bg-chart-3/10 text-chart-3" title="Gerar Laudo"><FileText className="h-3 w-3" /></button>
                     <button onClick={e => { e.stopPropagation(); setDeleteTarget(lead); }} className="text-[10px] px-2 py-0.5 rounded bg-destructive/10 text-destructive ml-auto"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 </div>
@@ -545,7 +548,10 @@ const CRM = () => {
               ) : (
                 <button className="text-xs text-primary hover:underline" onClick={() => { setShowTagDialog(selectedLead); setTagInput(""); setSelectedLead(null); }}>+ Atribuir vendedor</button>
               )}
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setLaudoTarget(selectedLead); setSelectedLead(null); }}>
+                  <FileText className="h-3.5 w-3.5 mr-1" /> Gerar Laudo
+                </Button>
                 <Button variant="destructive" size="sm" onClick={() => { setDeleteTarget(selectedLead); setSelectedLead(null); }}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir Lead
                 </Button>
@@ -588,6 +594,15 @@ const CRM = () => {
           <DialogFooter><Button onClick={() => { if (newLead.name && newLead.client_id) createLeadMut.mutate(newLead); }} disabled={createLeadMut.isPending}>{createLeadMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Laudo Generator */}
+      <LaudoGenerator
+        open={!!laudoTarget}
+        onOpenChange={v => { if (!v) setLaudoTarget(null); }}
+        leadName={laudoTarget?.name || ""}
+        leadPhone={laudoTarget?.phone}
+        leadEmail={laudoTarget?.email}
+      />
     </div>
   );
 
