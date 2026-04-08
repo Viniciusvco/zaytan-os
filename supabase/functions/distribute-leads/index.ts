@@ -25,19 +25,22 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse body for overrides and import mode
+    // Parse body
     let percentOverrides: Record<string, number> | undefined;
     let importMode: "new_only" | "all" = "new_only";
+    let targetClientIds: string[] | undefined;
     try {
       const body = await req.json();
       percentOverrides = body?.percent_overrides;
       importMode = body?.import_mode === "all" ? "all" : "new_only";
+      targetClientIds = body?.target_client_ids; // specific clients to import for
     } catch {
       // no body is fine
     }
 
     const externalSupabase = createClient(externalUrl, externalKey);
 
+    // Get contracts
     const { data: contracts, error: contractsError } = await supabase
       .from("contracts")
       .select("client_id, weekly_investment, clients(id, name)")
@@ -66,22 +69,29 @@ Deno.serve(async (req) => {
       clientInvestments[cid].investment += Number(c.weekly_investment);
     }
 
-    const totalInvestment = Object.values(clientInvestments).reduce((s, c) => s + c.investment, 0);
+    // If target clients specified, filter to only those
+    let clientIds = Object.keys(clientInvestments);
+    if (targetClientIds && targetClientIds.length > 0) {
+      clientIds = clientIds.filter(cid => targetClientIds!.includes(cid));
+      if (clientIds.length === 0) {
+        return new Response(JSON.stringify({ error: "Selected clients have no active contracts with investment" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const totalInvestment = clientIds.reduce((s, cid) => s + clientInvestments[cid].investment, 0);
     if (totalInvestment <= 0) {
       return new Response(JSON.stringify({ error: "Total investment is zero" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Calculate percentages (use overrides if provided, else investment-based)
-    const clientIds = Object.keys(clientInvestments);
+    // Calculate percentages
     const clientPercentages: Record<string, number> = {};
-    
     if (percentOverrides && Object.keys(percentOverrides).length > 0) {
-      // Use overrides for specified clients, auto-calc for rest
       let overriddenTotal = 0;
       let remainingInvestment = totalInvestment;
-      
       for (const cid of clientIds) {
         if (percentOverrides[cid] !== undefined) {
           clientPercentages[cid] = percentOverrides[cid];
@@ -89,40 +99,42 @@ Deno.serve(async (req) => {
           remainingInvestment -= clientInvestments[cid].investment;
         }
       }
-      
-      // Auto-distribute remaining percentage to non-overridden clients
       const remainingPercent = 100 - overriddenTotal;
       for (const cid of clientIds) {
         if (percentOverrides[cid] === undefined) {
           clientPercentages[cid] = remainingInvestment > 0
             ? (clientInvestments[cid].investment / remainingInvestment) * remainingPercent
-            : remainingPercent / clientIds.filter(id => percentOverrides[id] === undefined).length;
+            : remainingPercent / clientIds.filter(id => percentOverrides![id] === undefined).length;
         }
       }
     } else {
-      // Default: investment-proportional
       for (const cid of clientIds) {
         clientPercentages[cid] = (clientInvestments[cid].investment / totalInvestment) * 100;
       }
     }
 
-    // Get existing leads to check for duplicates
-    const { data: existingLeads } = await supabase
-      .from("leads")
-      .select("notes")
-      .eq("source", "leads_laportec_star5");
+    // Get existing leads per target client to check for duplicates (by ext_id)
+    const existingLeadsByClient: Record<string, Map<string, { id: string; status: string }>> = {};
+    for (const cid of clientIds) {
+      const { data: existingLeads } = await supabase
+        .from("leads")
+        .select("id, notes, status")
+        .eq("client_id", cid)
+        .eq("source", "leads_laportec_star5");
 
-    const syncedIds = new Set(
-      (existingLeads || [])
-        .map((l) => l.notes)
-        .filter(Boolean)
-        .map((n) => {
-          const match = n!.match(/ext_id:(\d+)/);
-          return match ? match[1] : null;
-        })
-        .filter(Boolean)
-    );
+      const map = new Map<string, { id: string; status: string }>();
+      for (const l of existingLeads || []) {
+        if (l.notes) {
+          const match = l.notes.match(/ext_id:(\d+)/);
+          if (match) {
+            map.set(match[1], { id: l.id, status: l.status });
+          }
+        }
+      }
+      existingLeadsByClient[cid] = map;
+    }
 
+    // Fetch external leads
     const { data: externalLeads, error: extError } = await externalSupabase
       .from("leads_laportec_star5")
       .select("*");
@@ -133,36 +145,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    let leadsToProcess: any[];
-    if (importMode === "all") {
-      // Delete existing synced leads first, then re-import all
-      if (syncedIds.size > 0) {
-        await supabase.from("leads").delete().eq("source", "leads_laportec_star5");
-      }
-      leadsToProcess = externalLeads || [];
-    } else {
-      // Only new leads
-      leadsToProcess = (externalLeads || []).filter(
-        (l) => !syncedIds.has(String(l["ID Lead"]))
-      );
-    }
-
-    if (leadsToProcess.length === 0) {
-      const distribution = clientIds.map((cid) => ({
-        client_id: cid,
-        client_name: clientInvestments[cid].name,
-        investment: clientInvestments[cid].investment,
-        percentage: Math.round(clientPercentages[cid] * 100) / 100,
-        leads_assigned: 0,
-      }));
-
+    const allExternalLeads = externalLeads || [];
+    if (allExternalLeads.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No new leads to distribute", distribution, total_new_leads: 0, total_inserted: 0 }),
+        JSON.stringify({ message: "No external leads found", total_new_leads: 0, total_inserted: 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const totalLeads = leadsToProcess.length;
+    // Collect ALL unique ext_ids already synced across ALL target clients
+    const allSyncedExtIds = new Set<string>();
+    for (const cid of clientIds) {
+      for (const extId of existingLeadsByClient[cid].keys()) {
+        allSyncedExtIds.add(`${cid}:${extId}`);
+      }
+    }
+
+    const totalLeads = allExternalLeads.length;
 
     // Distribute leads based on percentages
     const shares: { clientId: string; raw: number; rounded: number }[] = clientIds.map((cid) => {
@@ -172,7 +171,6 @@ Deno.serve(async (req) => {
 
     let distributed = shares.reduce((s, sh) => s + sh.rounded, 0);
     let remainder = totalLeads - distributed;
-
     const byFraction = [...shares].sort((a, b) => (b.raw - b.rounded) - (a.raw - a.rounded));
     for (let i = 0; i < remainder; i++) {
       byFraction[i % byFraction.length].rounded++;
@@ -183,10 +181,11 @@ Deno.serve(async (req) => {
       assignmentMap[sh.clientId] = sh.rounded;
     }
 
-    const leadsToInsert: any[] = [];
+    // Assign leads to clients
     const clientQueues: Record<string, number> = { ...assignmentMap };
+    const leadAssignments: Array<{ lead: any; clientId: string }> = [];
 
-    for (const lead of leadsToProcess) {
+    for (const lead of allExternalLeads) {
       let bestClient = clientIds[0];
       let bestRemaining = 0;
       for (const cid of clientIds) {
@@ -195,35 +194,75 @@ Deno.serve(async (req) => {
           bestClient = cid;
         }
       }
-
       clientQueues[bestClient]--;
-
-      leadsToInsert.push({
-        client_id: bestClient,
-        name: lead["Nome"] || "Lead sem nome",
-        email: lead["Email"] || null,
-        phone: lead["Telefone"] || null,
-        source: "leads_laportec_star5",
-        status: "novo",
-        notes: `ext_id:${lead["ID Lead"]}`,
-        financing_type: lead["Qual tipo de financiamento"] || null,
-        installment_value: lead["Valor das parcelas"] || null,
-        lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
-      });
+      leadAssignments.push({ lead, clientId: bestClient });
     }
 
+    // Now process: insert new, skip/update existing (NEVER change status of existing leads)
+    const leadsToInsert: any[] = [];
+    const leadsToUpdate: any[] = [];
+    const skippedCount: Record<string, number> = {};
+    const insertedCount: Record<string, number> = {};
+
+    for (const { lead, clientId } of leadAssignments) {
+      const extId = String(lead["ID Lead"]);
+      const existingMap = existingLeadsByClient[clientId];
+      const existing = existingMap.get(extId);
+
+      if (existing) {
+        if (importMode === "all") {
+          // Update non-status fields only (preserve kanban position)
+          leadsToUpdate.push({
+            id: existing.id,
+            name: lead["Nome"] || "Lead sem nome",
+            email: lead["Email"] || null,
+            phone: lead["Telefone"] || null,
+            financing_type: lead["Qual tipo de financiamento"] || null,
+            installment_value: lead["Valor das parcelas"] || null,
+            lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
+            // DO NOT update status - preserve kanban position
+          });
+        }
+        skippedCount[clientId] = (skippedCount[clientId] || 0) + 1;
+      } else {
+        // New lead for this client
+        leadsToInsert.push({
+          client_id: clientId,
+          name: lead["Nome"] || "Lead sem nome",
+          email: lead["Email"] || null,
+          phone: lead["Telefone"] || null,
+          source: "leads_laportec_star5",
+          status: "novo",
+          notes: `ext_id:${extId}`,
+          financing_type: lead["Qual tipo de financiamento"] || null,
+          installment_value: lead["Valor das parcelas"] || null,
+          lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
+        });
+        insertedCount[clientId] = (insertedCount[clientId] || 0) + 1;
+      }
+    }
+
+    // Batch insert new leads
     const BATCH_SIZE = 50;
-    let insertedCount = 0;
+    let totalInserted = 0;
     for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
       const batch = leadsToInsert.slice(i, i + BATCH_SIZE);
       const { error: insertError } = await supabase.from("leads").insert(batch);
       if (insertError) {
         return new Response(
-          JSON.stringify({ error: `Insert failed at batch ${i}: ${insertError.message}`, inserted_so_far: insertedCount }),
+          JSON.stringify({ error: `Insert failed at batch ${i}: ${insertError.message}`, inserted_so_far: totalInserted }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      insertedCount += batch.length;
+      totalInserted += batch.length;
+    }
+
+    // Batch update existing leads (data only, no status change)
+    let totalUpdated = 0;
+    for (const upd of leadsToUpdate) {
+      const { id, ...fields } = upd;
+      const { error: updError } = await supabase.from("leads").update(fields).eq("id", id);
+      if (!updError) totalUpdated++;
     }
 
     const distribution = clientIds.map((cid) => ({
@@ -231,14 +270,17 @@ Deno.serve(async (req) => {
       client_name: clientInvestments[cid].name,
       investment: clientInvestments[cid].investment,
       percentage: Math.round(clientPercentages[cid] * 100) / 100,
-      leads_assigned: assignmentMap[cid],
+      leads_assigned: insertedCount[cid] || 0,
+      leads_existing: skippedCount[cid] || 0,
+      leads_updated: importMode === "all" ? (skippedCount[cid] || 0) : 0,
     }));
 
     return new Response(
       JSON.stringify({
         success: true,
-        total_new_leads: totalLeads,
-        total_inserted: insertedCount,
+        total_external_leads: totalLeads,
+        total_inserted: totalInserted,
+        total_updated: totalUpdated,
         distribution,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
