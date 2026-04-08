@@ -273,6 +273,10 @@ const CRM = () => {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input className="w-full h-9 pl-9 pr-3 rounded-lg bg-muted border-0 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Buscar leads..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        </div>
         {isAdmin && (
           <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={clientFilter} onChange={e => setClientFilter(e.target.value)}>
             <option value="all">Todos os clientes</option>
@@ -291,8 +295,8 @@ const CRM = () => {
           <span className="text-xs text-muted-foreground">Até:</span>
           <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
         </div>
-        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo) && (
-          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); }}>Limpar filtros</button>
+        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo || searchQuery) && (
+          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); setSearchQuery(""); }}>Limpar filtros</button>
         )}
       </div>
 
