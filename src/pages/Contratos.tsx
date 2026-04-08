@@ -202,15 +202,17 @@ const Contratos = () => {
     setSyncing(true);
     setSyncResult(null);
     try {
-      // Send overrides and import mode to edge function
       const overrides = Object.keys(percentOverrides).length > 0 ? percentOverrides : undefined;
+      const targetClientIds = importClientFilter !== "all" ? [importClientFilter] : undefined;
       const { data, error } = await supabase.functions.invoke("distribute-leads", {
-        body: { percent_overrides: overrides, import_mode: importMode },
+        body: { percent_overrides: overrides, import_mode: importMode, target_client_ids: targetClientIds },
       });
       if (error) throw error;
       setSyncResult(data);
       if (data?.total_inserted > 0) {
-        toast.success(`${data.total_inserted} leads distribuídos com sucesso!`);
+        toast.success(`${data.total_inserted} leads importados! ${data.total_updated > 0 ? `${data.total_updated} atualizados.` : ""}`);
+      } else if (data?.total_updated > 0) {
+        toast.success(`${data.total_updated} leads atualizados (dados). Nenhum novo.`);
       } else {
         toast.info(data?.message || "Nenhum lead novo para distribuir");
       }
