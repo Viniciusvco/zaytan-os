@@ -417,13 +417,14 @@ const CRM = () => {
                     </button>
                   )}
                   {lead.loss_reason && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive mt-1 inline-block">{lossReasonLabels[lead.loss_reason as LossReason] || lead.loss_reason}</span>}
-                  <div className="flex gap-1 mt-2">
+                  <div className="flex gap-1 mt-2 flex-wrap">
                     {col.key !== "novo" && col.key !== "perdido" && (
                       <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
                     )}
                     {col.key !== "fechado" && col.key !== "perdido" && (
                       <button onClick={e => { e.stopPropagation(); const next = stageColumns[stageColumns.findIndex(c => c.key === col.key) + 1]; if (next) moveLead(lead, next.key); }} className="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary">→</button>
                     )}
+                    <button onClick={e => { e.stopPropagation(); setLaudoTarget(lead); }} className="text-[10px] px-2 py-0.5 rounded bg-chart-3/10 text-chart-3" title="Gerar Laudo"><FileText className="h-3 w-3" /></button>
                     <button onClick={e => { e.stopPropagation(); setDeleteTarget(lead); }} className="text-[10px] px-2 py-0.5 rounded bg-destructive/10 text-destructive ml-auto"><Trash2 className="h-3 w-3" /></button>
                   </div>
                 </div>
