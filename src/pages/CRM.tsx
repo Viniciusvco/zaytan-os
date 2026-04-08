@@ -594,6 +594,15 @@ const CRM = () => {
           <DialogFooter><Button onClick={() => { if (newLead.name && newLead.client_id) createLeadMut.mutate(newLead); }} disabled={createLeadMut.isPending}>{createLeadMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Laudo Generator */}
+      <LaudoGenerator
+        open={!!laudoTarget}
+        onOpenChange={v => { if (!v) setLaudoTarget(null); }}
+        leadName={laudoTarget?.name || ""}
+        leadPhone={laudoTarget?.phone}
+        leadEmail={laudoTarget?.email}
+      />
     </div>
   );
 
