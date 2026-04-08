@@ -321,13 +321,19 @@ const Contratos = () => {
             </div>
             <div>
               <h3 className="text-sm font-semibold">Distribuição de Leads</h3>
-              <p className="text-xs text-muted-foreground">Proporcional ao investimento semanal de cada cliente</p>
+              <p className="text-xs text-muted-foreground">Proporcional ao investimento ou ajuste manual do %</p>
             </div>
           </div>
-          <Button onClick={handleSync} disabled={syncing || distributionPreview.length === 0} variant="outline" size="sm">
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Sincronizando..." : "Sincronizar Leads Externos"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <select className="h-8 px-2 rounded-lg bg-muted border-0 text-xs" value={importMode} onChange={e => setImportMode(e.target.value as "new_only" | "all")}>
+              <option value="new_only">Somente novos leads</option>
+              <option value="all">Importar todos os leads</option>
+            </select>
+            <Button onClick={handleSync} disabled={syncing || distributionPreview.length === 0} variant="outline" size="sm">
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Sincronizando..." : "Sincronizar Leads"}
+            </Button>
+          </div>
         </div>
 
         {distributionPreview.length === 0 ? (
@@ -338,23 +344,52 @@ const Contratos = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
+            <div className="grid grid-cols-5 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
               <span>Cliente</span>
               <span className="text-right">Investimento Semanal</span>
               <span className="text-right">% dos Leads</span>
               <span>Distribuição</span>
+              <span className="text-right">Ação</span>
             </div>
             {distributionPreview.map((d) => (
-              <div key={d.client_id} className="grid grid-cols-4 gap-2 items-center">
+              <div key={d.client_id} className="grid grid-cols-5 gap-2 items-center">
                 <span className="text-sm font-medium truncate">{d.name}</span>
                 <span className="text-sm text-right">R$ {d.investment.toLocaleString()}</span>
-                <span className="text-sm text-right font-semibold text-primary">{d.percentage.toFixed(1)}%</span>
+                <div className="flex items-center justify-end gap-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    className={`w-16 h-7 px-2 rounded bg-muted border-0 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 ${d.isOverridden ? "ring-1 ring-primary/50" : ""}`}
+                    value={d.percentage.toFixed(1)}
+                    onChange={e => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val)) {
+                        setPercentOverrides(prev => ({ ...prev, [d.client_id]: val }));
+                      }
+                    }}
+                  />
+                  <span className="text-xs">%</span>
+                </div>
                 <Progress value={d.percentage} className="h-2" />
+                <div className="text-right">
+                  {d.isOverridden && (
+                    <button className="text-[10px] text-primary hover:underline" onClick={() => setPercentOverrides(prev => { const n = { ...prev }; delete n[d.client_id]; return n; })}>
+                      Resetar
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             <div className="flex items-center justify-between pt-3 border-t border-border">
               <span className="text-xs font-semibold text-muted-foreground">Total Investimento Semanal</span>
-              <span className="text-sm font-bold">R$ {totalWeeklyInvestment.toLocaleString()}</span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-bold">R$ {totalWeeklyInvestment.toLocaleString()}</span>
+                <span className={`text-xs font-semibold ${Math.abs(distributionPreview.reduce((s, d) => s + d.percentage, 0) - 100) > 0.5 ? "text-warning" : "text-success"}`}>
+                  Σ {distributionPreview.reduce((s, d) => s + d.percentage, 0).toFixed(1)}%
+                </span>
+              </div>
             </div>
           </div>
         )}
