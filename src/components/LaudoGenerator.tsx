@@ -2,15 +2,15 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileText, Download } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface LaudoData {
-  // Cliente
   clientName: string;
   cpf: string;
   consultorName: string;
   assessoriaName: string;
   assessoriaCnpj: string;
-  // Financiamento Atual
   financeira: string;
   modeloVeiculo: string;
   valorFinanciado: number;
@@ -18,7 +18,6 @@ interface LaudoData {
   valorParcela: number;
   parcelasPagas: number;
   parcelasAtrasadas: number;
-  // Financiamento Corrigido
   numeroProposta: string;
   statusProposta: string;
   novoNumMeses: number;
@@ -32,37 +31,45 @@ interface Props {
   leadName: string;
   leadPhone?: string;
   leadEmail?: string;
+  leadId?: string;
+  clientName?: string;
+  onPdfSaved?: () => void;
 }
 
-const initialData: LaudoData = {
-  clientName: "",
-  cpf: "",
-  consultorName: "",
-  assessoriaName: "Planum Assessoria",
-  assessoriaCnpj: "",
-  financeira: "",
-  modeloVeiculo: "",
-  valorFinanciado: 0,
-  numMeses: 0,
-  valorParcela: 0,
-  parcelasPagas: 0,
-  parcelasAtrasadas: 0,
-  numeroProposta: "",
-  statusProposta: "APROVADO",
-  novoNumMeses: 0,
-  novoValorParcela: 0,
-  estornoPrevisto: 0,
+const formatCpf = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 };
 
-export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail }: Props) {
-  const [data, setData] = useState<LaudoData>({ ...initialData, clientName: leadName });
+export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail, leadId, clientName, onPdfSaved }: Props) {
+  const [data, setData] = useState<LaudoData>({
+    clientName: leadName,
+    cpf: "",
+    consultorName: "",
+    assessoriaName: clientName || "",
+    assessoriaCnpj: "",
+    financeira: "",
+    modeloVeiculo: "",
+    valorFinanciado: 0,
+    numMeses: 0,
+    valorParcela: 0,
+    parcelasPagas: 0,
+    parcelasAtrasadas: 0,
+    numeroProposta: "",
+    statusProposta: "APROVADO",
+    novoNumMeses: 0,
+    novoValorParcela: 0,
+    estornoPrevisto: 0,
+  });
   const [generating, setGenerating] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const set = (field: keyof LaudoData, value: string | number) =>
     setData(prev => ({ ...prev, [field]: value }));
 
-  // Calculations
   const mesesRestantes = Math.max(0, data.numMeses - data.parcelasPagas);
   const reducaoMensal = Math.max(0, data.valorParcela - data.novoValorParcela);
   const reducaoTotal = reducaoMensal * mesesRestantes;
@@ -78,26 +85,72 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
     setGenerating(true);
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      await html2pdf()
+      const pdfBlob: Blob = await html2pdf()
         .set({
-          margin: [8, 8, 8, 8],
+          margin: [10, 12, 10, 12],
           filename: `laudo-${data.clientName || "cliente"}-${now.toISOString().split("T")[0]}.pdf`,
           image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true },
+          html2canvas: { scale: 2, useCORS: true, width: 794 },
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         })
         .from(printRef.current)
-        .save();
+        .outputPdf("blob");
+
+      // Save to storage if leadId is available
+      if (leadId) {
+        const fileName = `${leadId}/${Date.now()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from("laudos")
+          .upload(fileName, pdfBlob, { contentType: "application/pdf", upsert: true });
+
+        if (uploadError) {
+          console.error("Upload error", uploadError);
+          toast.error("Erro ao salvar PDF no servidor");
+        } else {
+          const { data: urlData } = supabase.storage.from("laudos").getPublicUrl(fileName);
+          if (urlData?.publicUrl) {
+            await supabase.from("leads").update({ laudo_pdf_url: urlData.publicUrl } as any).eq("id", leadId);
+            toast.success("PDF salvo e anexado ao card!");
+            onPdfSaved?.();
+          }
+        }
+      }
+
+      // Also download locally
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `laudo-${data.clientName || "cliente"}-${now.toISOString().split("T")[0]}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (e) {
       console.error("PDF error", e);
+      toast.error("Erro ao gerar PDF");
     } finally {
       setGenerating(false);
     }
   };
 
-  // Reset when opening with new lead
   const handleOpenChange = (v: boolean) => {
-    if (v) setData({ ...initialData, clientName: leadName });
+    if (v) setData({
+      clientName: leadName,
+      cpf: "",
+      consultorName: "",
+      assessoriaName: clientName || "",
+      assessoriaCnpj: "",
+      financeira: "",
+      modeloVeiculo: "",
+      valorFinanciado: 0,
+      numMeses: 0,
+      valorParcela: 0,
+      parcelasPagas: 0,
+      parcelasAtrasadas: 0,
+      numeroProposta: "",
+      statusProposta: "APROVADO",
+      novoNumMeses: 0,
+      novoValorParcela: 0,
+      estornoPrevisto: 0,
+    });
     onOpenChange(v);
   };
 
@@ -110,9 +163,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
           </DialogTitle>
         </DialogHeader>
 
-        {/* Form inputs */}
         <div className="space-y-4">
-          {/* Header info */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Nome do Cliente *</label>
@@ -120,7 +171,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">CPF</label>
-              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="000.000.000-00" value={data.cpf} onChange={e => set("cpf", e.target.value)} />
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="000.000.000-00" value={data.cpf} onChange={e => set("cpf", formatCpf(e.target.value))} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Consultor</label>
@@ -129,7 +180,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">Assessoria</label>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Nome da Assessoria</label>
               <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.assessoriaName} onChange={e => set("assessoriaName", e.target.value)} />
             </div>
             <div>
@@ -138,9 +189,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
             </div>
           </div>
 
-          {/* Two blocks side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Bloco Esquerdo */}
             <div className="border rounded-xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-destructive">Financiamento Atual</h3>
               <div>
@@ -177,7 +226,6 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
               </div>
             </div>
 
-            {/* Bloco Direito */}
             <div className="border rounded-xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-success">Financiamento Corrigido</h3>
               <div>
@@ -207,7 +255,6 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                 <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.estornoPrevisto || ""} onChange={e => set("estornoPrevisto", Number(e.target.value))} />
               </div>
 
-              {/* Auto-calculated fields */}
               <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-dashed">
                 <p className="text-xs font-semibold text-muted-foreground">Cálculos Automáticos</p>
                 <div className="flex justify-between text-sm">
@@ -226,7 +273,6 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
             </div>
           </div>
 
-          {/* Export button */}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
             <Button onClick={exportPDF} disabled={generating || !data.clientName}>
@@ -235,38 +281,35 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
           </div>
         </div>
 
-        {/* Hidden PDF content */}
+        {/* Hidden PDF content - fixed width to prevent right margin clipping */}
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
-          <div ref={printRef} style={{ width: "210mm", fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1a1a1a", background: "#fff", padding: "20mm 15mm" }}>
-            {/* Header */}
+          <div ref={printRef} style={{ width: "770px", maxWidth: "770px", fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1a1a1a", background: "#fff", padding: "30px 35px", boxSizing: "border-box" }}>
+            {/* Header - assessoria name instead of PLANUM */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #FF6E27", paddingBottom: "12px", marginBottom: "20px" }}>
               <div>
-                <div style={{ fontSize: "28px", fontWeight: 800, color: "#FF6E27", letterSpacing: "-1px" }}>PLANUM</div>
-                <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>Assessoria Financeira</div>
+                <div style={{ fontSize: "24px", fontWeight: 800, color: "#FF6E27", letterSpacing: "-0.5px" }}>{data.assessoriaName || "Assessoria"}</div>
+                {data.assessoriaCnpj && <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>CNPJ: {data.assessoriaCnpj}</div>}
               </div>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: "16px", fontWeight: 700 }}>{data.clientName}</div>
-                <div style={{ fontSize: "12px", color: "#666" }}>CPF: {data.cpf || "—"}</div>
+                <div style={{ fontSize: "15px", fontWeight: 700 }}>{data.clientName}</div>
+                <div style={{ fontSize: "11px", color: "#666" }}>CPF: {data.cpf || "—"}</div>
               </div>
               <div style={{ textAlign: "right", fontSize: "10px", color: "#666" }}>
-                <div style={{ fontWeight: 600 }}>{data.assessoriaName}</div>
-                <div>CNPJ: {data.assessoriaCnpj || "—"}</div>
-                <div>Consultor: {data.consultorName || "—"}</div>
+                {data.consultorName && <div>Consultor: {data.consultorName}</div>}
               </div>
             </div>
 
             {/* Title */}
-            <div style={{ textAlign: "center", marginBottom: "20px" }}>
-              <div style={{ fontSize: "18px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "2px" }}>Laudo Técnico de Revisão Contratual</div>
-              <div style={{ fontSize: "10px", color: "#888", marginTop: "4px" }}>Gerado em: {dataGeracao} | Válido até: {validade}</div>
+            <div style={{ textAlign: "center", marginBottom: "18px" }}>
+              <div style={{ fontSize: "16px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "2px" }}>Laudo Técnico de Revisão Contratual</div>
+              <div style={{ fontSize: "9px", color: "#888", marginTop: "4px" }}>Gerado em: {dataGeracao} | Válido até: {validade}</div>
             </div>
 
             {/* Two columns */}
-            <div style={{ display: "flex", gap: "16px", marginBottom: "20px" }}>
-              {/* Left */}
-              <div style={{ flex: 1, border: "1px solid #e5e5e5", borderRadius: "12px", overflow: "hidden" }}>
-                <div style={{ background: "#dc2626", color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 700 }}>FINANCIAMENTO ATUAL</div>
-                <div style={{ padding: "16px" }}>
+            <div style={{ display: "flex", gap: "12px", marginBottom: "18px" }}>
+              <div style={{ flex: 1, border: "1px solid #e5e5e5", borderRadius: "10px", overflow: "hidden" }}>
+                <div style={{ background: "#dc2626", color: "#fff", padding: "8px 14px", fontSize: "12px", fontWeight: 700 }}>FINANCIAMENTO ATUAL</div>
+                <div style={{ padding: "12px 14px" }}>
                   {[
                     ["Financeira", data.financeira],
                     ["Modelo do Veículo", data.modeloVeiculo],
@@ -276,17 +319,16 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                     ["Parcelas Pagas", data.parcelasPagas],
                     ["Parcelas Atrasadas", data.parcelasAtrasadas],
                   ].map(([label, val], i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "12px" }}>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "11px" }}>
                       <span style={{ color: "#666" }}>{label}</span>
                       <span style={{ fontWeight: 600 }}>{val || "—"}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              {/* Right */}
-              <div style={{ flex: 1, border: "1px solid #e5e5e5", borderRadius: "12px", overflow: "hidden" }}>
-                <div style={{ background: "#16a34a", color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 700 }}>FINANCIAMENTO CORRIGIDO</div>
-                <div style={{ padding: "16px" }}>
+              <div style={{ flex: 1, border: "1px solid #e5e5e5", borderRadius: "10px", overflow: "hidden" }}>
+                <div style={{ background: "#16a34a", color: "#fff", padding: "8px 14px", fontSize: "12px", fontWeight: 700 }}>FINANCIAMENTO CORRIGIDO</div>
+                <div style={{ padding: "12px 14px" }}>
                   {[
                     ["Nº Proposta", data.numeroProposta],
                     ["Status", data.statusProposta],
@@ -296,7 +338,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                     ["Estorno Previsto", `R$ ${fmt(data.estornoPrevisto)}`],
                     ["Redução Total", `R$ ${fmt(reducaoTotal)}`],
                   ].map(([label, val], i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "12px" }}>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "11px" }}>
                       <span style={{ color: "#666" }}>{label}</span>
                       <span style={{ fontWeight: 700, color: i >= 4 ? "#16a34a" : "#1a1a1a" }}>{val || "—"}</span>
                     </div>
@@ -306,9 +348,9 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
             </div>
 
             {/* Enquadramento */}
-            <div style={{ border: "1px solid #e5e5e5", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
-              <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "8px", color: "#FF6E27" }}>Enquadramento de Irregularidade Possível</div>
-              <p style={{ fontSize: "11px", color: "#444", lineHeight: "1.6" }}>
+            <div style={{ border: "1px solid #e5e5e5", borderRadius: "10px", padding: "14px", marginBottom: "16px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 700, marginBottom: "6px", color: "#FF6E27" }}>Enquadramento de Irregularidade Possível</div>
+              <p style={{ fontSize: "10px", color: "#444", lineHeight: "1.6" }}>
                 A presente análise fundamenta-se na <strong>Resolução 3919 do BACEN/CMN</strong> e nos <strong>artigos 39, 45 e 51 do Código de Defesa do Consumidor (CDC)</strong>,
                 referente a cobranças abusivas de <strong>Seguro Prestamista</strong>, <strong>Tarifa de Avaliação</strong> e <strong>Taxa de Cadastro</strong>,
                 que podem ter sido inseridas de forma irregular no contrato de financiamento do cliente.
@@ -316,12 +358,12 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
             </div>
 
             {/* Footer legal */}
-            <div style={{ background: "#f8f8f8", border: "1px solid #e5e5e5", borderRadius: "12px", padding: "16px" }}>
-              <p style={{ fontSize: "10px", color: "#666", lineHeight: "1.6", textAlign: "center" }}>
-                <strong>Fundamentação Legal:</strong> Artigo 51 da Lei nº 8.078 de 11 de Setembro de 1990 (Código de Defesa do Consumidor). 
+            <div style={{ background: "#f8f8f8", border: "1px solid #e5e5e5", borderRadius: "10px", padding: "14px" }}>
+              <p style={{ fontSize: "9px", color: "#666", lineHeight: "1.6", textAlign: "center" }}>
+                <strong>Fundamentação Legal:</strong> Artigo 51 da Lei nº 8.078 de 11 de Setembro de 1990 (Código de Defesa do Consumidor).
                 "Requisição de diminuição de parcelas e quitação de dívidas sobre juros abusivos."
               </p>
-              <p style={{ fontSize: "9px", color: "#999", textAlign: "center", marginTop: "8px" }}>
+              <p style={{ fontSize: "8px", color: "#999", textAlign: "center", marginTop: "6px" }}>
                 Este documento possui validade de 4 horas a partir de sua geração. Após este período, uma nova análise deve ser solicitada.
               </p>
             </div>
