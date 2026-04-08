@@ -180,6 +180,7 @@ const Contratos = () => {
   // Manual % overrides
   const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
   const [importMode, setImportMode] = useState<"new_only" | "all">("new_only");
+  const [importClientFilter, setImportClientFilter] = useState<string>("all");
 
   const distributionPreview = Object.entries(investmentByClient)
     .filter(([_, v]) => v.investment > 0)
@@ -201,15 +202,17 @@ const Contratos = () => {
     setSyncing(true);
     setSyncResult(null);
     try {
-      // Send overrides and import mode to edge function
       const overrides = Object.keys(percentOverrides).length > 0 ? percentOverrides : undefined;
+      const targetClientIds = importClientFilter !== "all" ? [importClientFilter] : undefined;
       const { data, error } = await supabase.functions.invoke("distribute-leads", {
-        body: { percent_overrides: overrides, import_mode: importMode },
+        body: { percent_overrides: overrides, import_mode: importMode, target_client_ids: targetClientIds },
       });
       if (error) throw error;
       setSyncResult(data);
       if (data?.total_inserted > 0) {
-        toast.success(`${data.total_inserted} leads distribuídos com sucesso!`);
+        toast.success(`${data.total_inserted} leads importados! ${data.total_updated > 0 ? `${data.total_updated} atualizados.` : ""}`);
+      } else if (data?.total_updated > 0) {
+        toast.success(`${data.total_updated} leads atualizados (dados). Nenhum novo.`);
       } else {
         toast.info(data?.message || "Nenhum lead novo para distribuir");
       }
@@ -324,14 +327,20 @@ const Contratos = () => {
               <p className="text-xs text-muted-foreground">Proporcional ao investimento ou ajuste manual do %</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select className="h-8 px-2 rounded-lg bg-muted border-0 text-xs" value={importClientFilter} onChange={e => setImportClientFilter(e.target.value)}>
+              <option value="all">Todos os clientes</option>
+              {distributionPreview.map(d => (
+                <option key={d.client_id} value={d.client_id}>{d.name}</option>
+              ))}
+            </select>
             <select className="h-8 px-2 rounded-lg bg-muted border-0 text-xs" value={importMode} onChange={e => setImportMode(e.target.value as "new_only" | "all")}>
               <option value="new_only">Somente novos leads</option>
-              <option value="all">Importar todos os leads</option>
+              <option value="all">Importar todos (atualizar dados, manter status)</option>
             </select>
             <Button onClick={handleSync} disabled={syncing || distributionPreview.length === 0} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Sincronizando..." : "Sincronizar Leads"}
+              {syncing ? "Sincronizando..." : "Importar Leads"}
             </Button>
           </div>
         </div>
@@ -397,14 +406,18 @@ const Contratos = () => {
         {syncResult && syncResult.distribution && (
           <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
             <h4 className="text-xs font-semibold mb-2">
-              {syncResult.total_inserted > 0
-                ? `✅ ${syncResult.total_inserted} leads distribuídos`
+              {syncResult.total_inserted > 0 || syncResult.total_updated > 0
+                ? `✅ ${syncResult.total_inserted} novos, ${syncResult.total_updated || 0} atualizados`
                 : "ℹ️ Nenhum lead novo"}
             </h4>
             {syncResult.distribution.map((d: any) => (
               <div key={d.client_id} className="flex items-center justify-between text-xs py-1">
                 <span>{d.client_name}</span>
-                <span className="font-semibold">{d.leads_assigned} leads ({d.percentage.toFixed(1)}%)</span>
+                <span className="font-semibold">
+                  {d.leads_assigned} novos · {d.leads_existing || 0} existentes
+                  {d.leads_updated > 0 ? ` · ${d.leads_updated} atualizados` : ""}
+                  ({d.percentage.toFixed(1)}%)
+                </span>
               </div>
             ))}
           </div>
