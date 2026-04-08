@@ -608,6 +608,9 @@ const CRM = () => {
         leadName={laudoTarget?.name || ""}
         leadPhone={laudoTarget?.phone}
         leadEmail={laudoTarget?.email}
+        leadId={laudoTarget?.id}
+        clientName={laudoTarget?.clients?.name || (clients.find((c: any) => c.id === laudoTarget?.client_id) as any)?.name || ""}
+        onPdfSaved={() => qc.invalidateQueries({ queryKey: ["leads"] })}
       />
     </div>
   );
