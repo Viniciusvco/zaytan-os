@@ -370,6 +370,7 @@ const CRM = () => {
                   {lead.phone && lead.phone !== lead.email && <p className="text-[10px] text-muted-foreground truncate"><Phone className="h-3 w-3 inline mr-1" />{lead.phone}</p>}
                   {lead.financing_type && <p className="text-[10px] text-muted-foreground"><Car className="h-3 w-3 inline mr-1" />{lead.financing_type.replace(/_/g, " ")}</p>}
                   {lead.installment_value && <p className="text-[10px] text-muted-foreground"><CreditCard className="h-3 w-3 inline mr-1" />{lead.installment_value.replace(/_/g, " ").replace(/r\$/i, "R$")}</p>}
+                  {(lead.lead_entry_date || lead.created_at) && <p className="text-[10px] text-muted-foreground"><Calendar className="h-3 w-3 inline mr-1" />Entrada: {new Date(lead.lead_entry_date || lead.created_at).toLocaleDateString("pt-BR")}</p>}
                   {lead.status === "fechado" && (
                     <div className="flex items-center gap-1">
                       <p className="text-sm font-semibold">R$ {Number(lead.value || 0).toLocaleString()}</p>
