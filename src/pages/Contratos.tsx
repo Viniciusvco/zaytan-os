@@ -327,14 +327,20 @@ const Contratos = () => {
               <p className="text-xs text-muted-foreground">Proporcional ao investimento ou ajuste manual do %</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <select className="h-8 px-2 rounded-lg bg-muted border-0 text-xs" value={importClientFilter} onChange={e => setImportClientFilter(e.target.value)}>
+              <option value="all">Todos os clientes</option>
+              {distributionPreview.map(d => (
+                <option key={d.client_id} value={d.client_id}>{d.name}</option>
+              ))}
+            </select>
             <select className="h-8 px-2 rounded-lg bg-muted border-0 text-xs" value={importMode} onChange={e => setImportMode(e.target.value as "new_only" | "all")}>
               <option value="new_only">Somente novos leads</option>
-              <option value="all">Importar todos os leads</option>
+              <option value="all">Importar todos (atualizar dados, manter status)</option>
             </select>
             <Button onClick={handleSync} disabled={syncing || distributionPreview.length === 0} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Sincronizando..." : "Sincronizar Leads"}
+              {syncing ? "Sincronizando..." : "Importar Leads"}
             </Button>
           </div>
         </div>
