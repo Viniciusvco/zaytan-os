@@ -1,100 +1,31 @@
 
-# Zaytan OS — Migração para Produção
 
-## Fase 1: Banco de Dados (Migração SQL)
+## Plano: Menu "Mais opções" na coluna "Novo Lead" do Kanban
 
-### Tabelas a criar:
+### O que será feito
+Adicionar um ícone de três pontos (`MoreHorizontal`) no cabeçalho da coluna "Novo Lead" do Kanban. Ao clicar, exibe um dropdown com a opção "Inserir lead manualmente", que abre o diálogo existente de criação de lead. O formulário será expandido para incluir todos os campos da tabela `leads` (financing_type, installment_value, lead_entry_date, seller_tag, notes). O cliente será pré-selecionado automaticamente quando um filtro de cliente estiver ativo.
 
-**profiles** — Perfis de usuário
-- user_id (ref auth.users), full_name, phone, avatar_url, role (admin/colaborador/cliente), colaborador_type (gestor/designer/cs), active
+### Detalhes técnicos
 
-**clients** — Clientes da agência
-- name, email, phone, company, logo_url, primary_color, onboarding_complete, active, assigned_to (ref profiles)
+**Arquivo: `src/pages/CRM.tsx`**
 
-**contracts** — Contratos
-- client_id (ref clients), title, start_date, end_date, setup_value, mrr_value, status (rascunho/ativo/cancelado/aguardando), weekly_investment (usado na distribuição de leads)
+1. **Importações**: Adicionar `MoreHorizontal` de `lucide-react` e `DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger` de `@/components/ui/dropdown-menu`.
 
-**products** — Catálogo de produtos
-- name, description, category, min_price, max_price, recurrence, active
+2. **Estado `newLead`** (linha ~30): Expandir o objeto para incluir os campos adicionais: `financing_type`, `installment_value`, `lead_entry_date`, `seller_tag`, `notes`.
 
-**leads** — Leads do CRM
-- client_id (ref clients), name, email, phone, source, status (novo/contatado/qualificado/proposta/fechado/perdido), value, loss_reason, notes, created_at
+3. **Cabeçalho da coluna Kanban** (linhas ~357-360): Para a coluna `"novo"`, adicionar um `DropdownMenu` com ícone `MoreHorizontal` ao lado do badge de contagem. O item do menu chama `setShowAdd(true)` e, se `clientFilter !== "all"`, pré-seleciona `newLead.client_id` com o valor do filtro ativo.
 
-**lead_distribution_config** — Config de distribuição
-- client_id (ref clients), investment_amount, period_start, period_end, active
+4. **Formulário "Adicionar Lead"** (linhas ~538-551): Adicionar campos para:
+   - `financing_type` (select: opções da tabela externa como "financiamento", "consórcio", etc.)
+   - `installment_value` (input texto)
+   - `lead_entry_date` (input date)
+   - `seller_tag` (input texto)
+   - `notes` (textarea)
 
-**financial_records** — Lançamentos financeiros
-- client_id, type (receita/despesa), category, description, amount, due_date, paid_date, status (pendente/pago/atrasado)
+5. **Mutação `createLeadMut`** (linha ~146-148): Expandir o insert para enviar os novos campos (`financing_type`, `installment_value`, `lead_entry_date`, `seller_tag`, `notes`).
 
-**demands** — Demandas/Kanban
-- client_id, assigned_to (ref profiles), title, description, status (backlog/em_progresso/revisao/concluido), priority, specialty (trafego/design/cs), due_date
+6. **Reset do estado** (linha ~150): Limpar todos os campos novos no `onSuccess`.
 
-**user_roles** — Roles separadas (segurança)
-- user_id (ref auth.users), role (admin/moderator/user)
+### Sem alterações de backend
+A tabela `leads` já possui todos os campos necessários. Nenhuma migração ou edge function precisa ser alterada.
 
-### RLS Policies:
-- Admin: acesso total
-- Colaborador: acesso apenas a demandas/leads dos clientes atribuídos
-- Cliente: acesso apenas aos próprios leads, contratos e financeiro
-
----
-
-## Fase 2: Autenticação
-
-- Tela de Login (email + senha)
-- Admin cria usuários (não tem signup público)
-- Após login, redireciona baseado no role do perfil
-- Página de gestão de usuários no Admin (já existe, conectar ao Supabase)
-
----
-
-## Fase 3: Páginas Funcionais (remover mocks)
-
-### Admin:
-- **Financeiro**: CRUD real de lançamentos financeiros
-- **Produtos**: CRUD real de produtos
-- **Contratos**: CRUD real + campo de investimento semanal para distribuição
-- **CRM (Admin)**: Pipeline geral de todos os leads
-- **Performance**: Métricas reais dos leads por cliente
-- **Usuários**: Criar/editar/desativar usuários
-
-### Cliente:
-- **Dashboard**: Métricas reais (leads recebidos, taxa conversão)
-- **CRM**: Leads distribuídos automaticamente, movimentação real
-- **Demandas**: Kanban real
-
----
-
-## Fase 4: Distribuição de Leads
-
-- Lógica: `leads_do_cliente = (investimento_cliente / total_investimentos) × total_leads`
-- Config na aba Contratos (investimento semanal por cliente)
-- Webhook endpoint (Edge Function) para receber leads do Meta Ads
-- Edge Function distribui leads proporcionalmente e insere na tabela `leads`
-
----
-
-## Fase 5: Integração Meta Ads (Webhook)
-
-- Edge Function `receive-leads` que recebe webhook do Meta
-- Distribui leads entre clientes conforme investimento
-- Insere no Supabase em tempo real
-- Admin configura webhook URL no Meta Ads
-
----
-
-## Ordem de Implementação
-
-1. Migração SQL (todas as tabelas + RLS)
-2. Autenticação + Login + Profiles
-3. Conectar páginas Admin ao Supabase (Financeiro, Produtos, Contratos, Usuários)
-4. Conectar CRM + Dashboard do Cliente ao Supabase
-5. Edge Function de distribuição de leads
-6. Manter "Em breve" em: Academy, Feedbacks, Minha Equipe, Suporte, Onboarding, todas as telas do Colaborador
-
----
-
-## Notas
-- Páginas "Em breve" mantêm mockups + alerta amarelo
-- Disable signup público (admin cria contas)
-- Auto-confirm email habilitado (admin cria, já vem confirmado)
