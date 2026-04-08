@@ -406,14 +406,18 @@ const Contratos = () => {
         {syncResult && syncResult.distribution && (
           <div className="mt-4 p-4 rounded-lg bg-muted/50 border border-border">
             <h4 className="text-xs font-semibold mb-2">
-              {syncResult.total_inserted > 0
-                ? `✅ ${syncResult.total_inserted} leads distribuídos`
+              {syncResult.total_inserted > 0 || syncResult.total_updated > 0
+                ? `✅ ${syncResult.total_inserted} novos, ${syncResult.total_updated || 0} atualizados`
                 : "ℹ️ Nenhum lead novo"}
             </h4>
             {syncResult.distribution.map((d: any) => (
               <div key={d.client_id} className="flex items-center justify-between text-xs py-1">
                 <span>{d.client_name}</span>
-                <span className="font-semibold">{d.leads_assigned} leads ({d.percentage.toFixed(1)}%)</span>
+                <span className="font-semibold">
+                  {d.leads_assigned} novos · {d.leads_existing || 0} existentes
+                  {d.leads_updated > 0 ? ` · ${d.leads_updated} atualizados` : ""}
+                  ({d.percentage.toFixed(1)}%)
+                </span>
               </div>
             ))}
           </div>
