@@ -1,0 +1,333 @@
+import { useState, useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { FileText, Download } from "lucide-react";
+
+interface LaudoData {
+  // Cliente
+  clientName: string;
+  cpf: string;
+  consultorName: string;
+  assessoriaName: string;
+  assessoriaCnpj: string;
+  // Financiamento Atual
+  financeira: string;
+  modeloVeiculo: string;
+  valorFinanciado: number;
+  numMeses: number;
+  valorParcela: number;
+  parcelasPagas: number;
+  parcelasAtrasadas: number;
+  // Financiamento Corrigido
+  numeroProposta: string;
+  statusProposta: string;
+  novoNumMeses: number;
+  novoValorParcela: number;
+  estornoPrevisto: number;
+}
+
+interface Props {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  leadName: string;
+  leadPhone?: string;
+  leadEmail?: string;
+}
+
+const initialData: LaudoData = {
+  clientName: "",
+  cpf: "",
+  consultorName: "",
+  assessoriaName: "Planum Assessoria",
+  assessoriaCnpj: "",
+  financeira: "",
+  modeloVeiculo: "",
+  valorFinanciado: 0,
+  numMeses: 0,
+  valorParcela: 0,
+  parcelasPagas: 0,
+  parcelasAtrasadas: 0,
+  numeroProposta: "",
+  statusProposta: "APROVADO",
+  novoNumMeses: 0,
+  novoValorParcela: 0,
+  estornoPrevisto: 0,
+};
+
+export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail }: Props) {
+  const [data, setData] = useState<LaudoData>({ ...initialData, clientName: leadName });
+  const [generating, setGenerating] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const set = (field: keyof LaudoData, value: string | number) =>
+    setData(prev => ({ ...prev, [field]: value }));
+
+  // Calculations
+  const mesesRestantes = Math.max(0, data.numMeses - data.parcelasPagas);
+  const reducaoMensal = Math.max(0, data.valorParcela - data.novoValorParcela);
+  const reducaoTotal = reducaoMensal * mesesRestantes;
+
+  const now = new Date();
+  const dataGeracao = now.toLocaleString("pt-BR");
+  const validade = new Date(now.getTime() + 4 * 60 * 60 * 1000).toLocaleString("pt-BR");
+
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const exportPDF = async () => {
+    if (!printRef.current) return;
+    setGenerating(true);
+    try {
+      const html2pdf = (await import("html2pdf.js")).default;
+      await html2pdf()
+        .set({
+          margin: [8, 8, 8, 8],
+          filename: `laudo-${data.clientName || "cliente"}-${now.toISOString().split("T")[0]}.pdf`,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        })
+        .from(printRef.current)
+        .save();
+    } catch (e) {
+      console.error("PDF error", e);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Reset when opening with new lead
+  const handleOpenChange = (v: boolean) => {
+    if (v) setData({ ...initialData, clientName: leadName });
+    onOpenChange(v);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" /> Gerador de Laudo / Ficha Técnica
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Form inputs */}
+        <div className="space-y-4">
+          {/* Header info */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Nome do Cliente *</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={data.clientName} onChange={e => set("clientName", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">CPF</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="000.000.000-00" value={data.cpf} onChange={e => set("cpf", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Consultor</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.consultorName} onChange={e => set("consultorName", e.target.value)} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">Assessoria</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.assessoriaName} onChange={e => set("assessoriaName", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground block mb-1">CNPJ da Assessoria</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="00.000.000/0000-00" value={data.assessoriaCnpj} onChange={e => set("assessoriaCnpj", e.target.value)} />
+            </div>
+          </div>
+
+          {/* Two blocks side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Bloco Esquerdo */}
+            <div className="border rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-bold text-destructive">Financiamento Atual</h3>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Financeira (Instituição)</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.financeira} onChange={e => set("financeira", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Modelo do Veículo</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.modeloVeiculo} onChange={e => set("modeloVeiculo", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Valor Financiado (R$)</label>
+                <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.valorFinanciado || ""} onChange={e => set("valorFinanciado", Number(e.target.value))} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Nº de Meses</label>
+                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.numMeses || ""} onChange={e => set("numMeses", Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Valor Parcela (R$)</label>
+                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.valorParcela || ""} onChange={e => set("valorParcela", Number(e.target.value))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Parcelas Pagas</label>
+                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.parcelasPagas || ""} onChange={e => set("parcelasPagas", Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Parcelas Atrasadas</label>
+                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.parcelasAtrasadas || ""} onChange={e => set("parcelasAtrasadas", Number(e.target.value))} />
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco Direito */}
+            <div className="border rounded-xl p-4 space-y-3">
+              <h3 className="text-sm font-bold text-success">Financiamento Corrigido</h3>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Nº da Proposta/Correção</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.numeroProposta} onChange={e => set("numeroProposta", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Status</label>
+                <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.statusProposta} onChange={e => set("statusProposta", e.target.value)}>
+                  <option value="APROVADO">APROVADO</option>
+                  <option value="EM ANÁLISE">EM ANÁLISE</option>
+                  <option value="REPROVADO">REPROVADO</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Novo Nº de Meses</label>
+                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.novoNumMeses || ""} onChange={e => set("novoNumMeses", Number(e.target.value))} />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Novo Valor Parcela (R$)</label>
+                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.novoValorParcela || ""} onChange={e => set("novoValorParcela", Number(e.target.value))} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Estorno Previsto (R$)</label>
+                <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.estornoPrevisto || ""} onChange={e => set("estornoPrevisto", Number(e.target.value))} />
+              </div>
+
+              {/* Auto-calculated fields */}
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-dashed">
+                <p className="text-xs font-semibold text-muted-foreground">Cálculos Automáticos</p>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Meses Restantes:</span>
+                  <span className="font-bold">{mesesRestantes}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Redução Mensal:</span>
+                  <span className="font-bold text-success">R$ {fmt(reducaoMensal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Redução Total:</span>
+                  <span className="font-bold text-success text-lg">R$ {fmt(reducaoTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Export button */}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
+            <Button onClick={exportPDF} disabled={generating || !data.clientName}>
+              <Download className="h-4 w-4 mr-1" /> {generating ? "Gerando..." : "Exportar PDF"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Hidden PDF content */}
+        <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
+          <div ref={printRef} style={{ width: "210mm", fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1a1a1a", background: "#fff", padding: "20mm 15mm" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #FF6E27", paddingBottom: "12px", marginBottom: "20px" }}>
+              <div>
+                <div style={{ fontSize: "28px", fontWeight: 800, color: "#FF6E27", letterSpacing: "-1px" }}>PLANUM</div>
+                <div style={{ fontSize: "10px", color: "#666", marginTop: "2px" }}>Assessoria Financeira</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "16px", fontWeight: 700 }}>{data.clientName}</div>
+                <div style={{ fontSize: "12px", color: "#666" }}>CPF: {data.cpf || "—"}</div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: "10px", color: "#666" }}>
+                <div style={{ fontWeight: 600 }}>{data.assessoriaName}</div>
+                <div>CNPJ: {data.assessoriaCnpj || "—"}</div>
+                <div>Consultor: {data.consultorName || "—"}</div>
+              </div>
+            </div>
+
+            {/* Title */}
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div style={{ fontSize: "18px", fontWeight: 700, color: "#1a1a1a", textTransform: "uppercase", letterSpacing: "2px" }}>Laudo Técnico de Revisão Contratual</div>
+              <div style={{ fontSize: "10px", color: "#888", marginTop: "4px" }}>Gerado em: {dataGeracao} | Válido até: {validade}</div>
+            </div>
+
+            {/* Two columns */}
+            <div style={{ display: "flex", gap: "16px", marginBottom: "20px" }}>
+              {/* Left */}
+              <div style={{ flex: 1, border: "1px solid #e5e5e5", borderRadius: "12px", overflow: "hidden" }}>
+                <div style={{ background: "#dc2626", color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 700 }}>FINANCIAMENTO ATUAL</div>
+                <div style={{ padding: "16px" }}>
+                  {[
+                    ["Financeira", data.financeira],
+                    ["Modelo do Veículo", data.modeloVeiculo],
+                    ["Valor Financiado", `R$ ${fmt(data.valorFinanciado)}`],
+                    ["Nº de Meses", data.numMeses],
+                    ["Valor da Parcela", `R$ ${fmt(data.valorParcela)}`],
+                    ["Parcelas Pagas", data.parcelasPagas],
+                    ["Parcelas Atrasadas", data.parcelasAtrasadas],
+                  ].map(([label, val], i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "12px" }}>
+                      <span style={{ color: "#666" }}>{label}</span>
+                      <span style={{ fontWeight: 600 }}>{val || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Right */}
+              <div style={{ flex: 1, border: "1px solid #e5e5e5", borderRadius: "12px", overflow: "hidden" }}>
+                <div style={{ background: "#16a34a", color: "#fff", padding: "10px 16px", fontSize: "13px", fontWeight: 700 }}>FINANCIAMENTO CORRIGIDO</div>
+                <div style={{ padding: "16px" }}>
+                  {[
+                    ["Nº Proposta", data.numeroProposta],
+                    ["Status", data.statusProposta],
+                    ["Novo Nº de Meses", data.novoNumMeses],
+                    ["Novo Valor Parcela", `R$ ${fmt(data.novoValorParcela)}`],
+                    ["Redução Mensal", `R$ ${fmt(reducaoMensal)}`],
+                    ["Estorno Previsto", `R$ ${fmt(data.estornoPrevisto)}`],
+                    ["Redução Total", `R$ ${fmt(reducaoTotal)}`],
+                  ].map(([label, val], i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "12px" }}>
+                      <span style={{ color: "#666" }}>{label}</span>
+                      <span style={{ fontWeight: 700, color: i >= 4 ? "#16a34a" : "#1a1a1a" }}>{val || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Enquadramento */}
+            <div style={{ border: "1px solid #e5e5e5", borderRadius: "12px", padding: "16px", marginBottom: "20px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 700, marginBottom: "8px", color: "#FF6E27" }}>Enquadramento de Irregularidade Possível</div>
+              <p style={{ fontSize: "11px", color: "#444", lineHeight: "1.6" }}>
+                A presente análise fundamenta-se na <strong>Resolução 3919 do BACEN/CMN</strong> e nos <strong>artigos 39, 45 e 51 do Código de Defesa do Consumidor (CDC)</strong>,
+                referente a cobranças abusivas de <strong>Seguro Prestamista</strong>, <strong>Tarifa de Avaliação</strong> e <strong>Taxa de Cadastro</strong>,
+                que podem ter sido inseridas de forma irregular no contrato de financiamento do cliente.
+              </p>
+            </div>
+
+            {/* Footer legal */}
+            <div style={{ background: "#f8f8f8", border: "1px solid #e5e5e5", borderRadius: "12px", padding: "16px" }}>
+              <p style={{ fontSize: "10px", color: "#666", lineHeight: "1.6", textAlign: "center" }}>
+                <strong>Fundamentação Legal:</strong> Artigo 51 da Lei nº 8.078 de 11 de Setembro de 1990 (Código de Defesa do Consumidor). 
+                "Requisição de diminuição de parcelas e quitação de dívidas sobre juros abusivos."
+              </p>
+              <p style={{ fontSize: "9px", color: "#999", textAlign: "center", marginTop: "8px" }}>
+                Este documento possui validade de 4 horas a partir de sua geração. Após este período, uma nova análise deve ser solicitada.
+              </p>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
