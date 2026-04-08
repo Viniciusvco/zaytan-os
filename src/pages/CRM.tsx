@@ -548,7 +548,10 @@ const CRM = () => {
               ) : (
                 <button className="text-xs text-primary hover:underline" onClick={() => { setShowTagDialog(selectedLead); setTagInput(""); setSelectedLead(null); }}>+ Atribuir vendedor</button>
               )}
-              <div className="pt-2 border-t">
+              <div className="pt-2 border-t flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { setLaudoTarget(selectedLead); setSelectedLead(null); }}>
+                  <FileText className="h-3.5 w-3.5 mr-1" /> Gerar Laudo
+                </Button>
                 <Button variant="destructive" size="sm" onClick={() => { setDeleteTarget(selectedLead); setSelectedLead(null); }}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Excluir Lead
                 </Button>
