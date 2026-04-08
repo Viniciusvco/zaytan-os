@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3 } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search } from "lucide-react";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ const CRM = () => {
   // Filters - default to current month
   const [clientFilter, setClientFilter] = useState("all");
   const [sellerFilter, setSellerFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const now = new Date();
   const [dateFrom, setDateFrom] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
   const [dateTo, setDateTo] = useState(now.toISOString().split("T")[0]);
@@ -81,6 +82,14 @@ const CRM = () => {
     return leads.filter((l: any) => {
       if (clientFilter !== "all" && l.client_id !== clientFilter) return false;
       if (sellerFilter !== "all" && l.seller_tag !== sellerFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const match = (l.name || "").toLowerCase().includes(q) ||
+          (l.email || "").toLowerCase().includes(q) ||
+          (l.phone || "").toLowerCase().includes(q) ||
+          (l.seller_tag || "").toLowerCase().includes(q);
+        if (!match) return false;
+      }
       if (dateFrom) {
         const entryDate = l.lead_entry_date || l.created_at;
         if (entryDate < dateFrom) return false;
@@ -91,7 +100,7 @@ const CRM = () => {
       }
       return true;
     });
-  }, [leads, clientFilter, sellerFilter, dateFrom, dateTo]);
+  }, [leads, clientFilter, sellerFilter, searchQuery, dateFrom, dateTo]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, value, loss_reason, notes }: { id: string; status: LeadStatus; value?: number; loss_reason?: string; notes?: string }) => {
