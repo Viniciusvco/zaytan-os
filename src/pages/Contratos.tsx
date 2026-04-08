@@ -176,14 +176,23 @@ const Contratos = () => {
     investmentByClient[cid].investment += Number(c.weekly_investment || 0);
   });
   const totalWeeklyInvestment = Object.values(investmentByClient).reduce((s, c) => s + c.investment, 0);
+
+  // Manual % overrides
+  const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
+  const [importMode, setImportMode] = useState<"new_only" | "all">("new_only");
+
   const distributionPreview = Object.entries(investmentByClient)
     .filter(([_, v]) => v.investment > 0)
-    .map(([cid, v]) => ({
-      client_id: cid,
-      name: v.name,
-      investment: v.investment,
-      percentage: totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0,
-    }));
+    .map(([cid, v]) => {
+      const autoPercent = totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0;
+      return {
+        client_id: cid,
+        name: v.name,
+        investment: v.investment,
+        percentage: percentOverrides[cid] !== undefined ? percentOverrides[cid] : autoPercent,
+        isOverridden: percentOverrides[cid] !== undefined,
+      };
+    });
 
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any>(null);
@@ -192,7 +201,11 @@ const Contratos = () => {
     setSyncing(true);
     setSyncResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("distribute-leads");
+      // Send overrides and import mode to edge function
+      const overrides = Object.keys(percentOverrides).length > 0 ? percentOverrides : undefined;
+      const { data, error } = await supabase.functions.invoke("distribute-leads", {
+        body: { percent_overrides: overrides, import_mode: importMode },
+      });
       if (error) throw error;
       setSyncResult(data);
       if (data?.total_inserted > 0) {
