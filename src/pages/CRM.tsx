@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ const CRM = () => {
   const qc = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [newLead, setNewLead] = useState({ name: "", email: "", phone: "", source: "Meta Ads", value: 0, client_id: "" });
+  const [newLead, setNewLead] = useState({ name: "", email: "", phone: "", source: "Meta Ads", value: 0, client_id: "", financing_type: "", installment_value: "", lead_entry_date: "", seller_tag: "", notes: "" });
   const [moveTarget, setMoveTarget] = useState<{ lead: any; status: LeadStatus } | null>(null);
   const [saleValue, setSaleValue] = useState(0);
   const [lossReason, setLossReason] = useState<LossReason>("nao_atende");
@@ -144,10 +145,15 @@ const CRM = () => {
 
   const createLeadMut = useMutation({
     mutationFn: async (p: typeof newLead) => {
-      const { error } = await supabase.from("leads").insert({ name: p.name, email: p.email || null, phone: p.phone || null, source: p.source, value: p.value || null, client_id: p.client_id });
+      const { error } = await supabase.from("leads").insert({
+        name: p.name, email: p.email || null, phone: p.phone || null, source: p.source,
+        value: p.value || null, client_id: p.client_id,
+        financing_type: p.financing_type || null, installment_value: p.installment_value || null,
+        lead_entry_date: p.lead_entry_date || null, seller_tag: p.seller_tag || null, notes: p.notes || null,
+      });
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setShowAdd(false); setNewLead({ name: "", email: "", phone: "", source: "Meta Ads", value: 0, client_id: "" }); toast.success("Lead criado"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setShowAdd(false); setNewLead({ name: "", email: "", phone: "", source: "Meta Ads", value: 0, client_id: "", financing_type: "", installment_value: "", lead_entry_date: "", seller_tag: "", notes: "" }); toast.success("Lead criado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -356,7 +362,24 @@ const CRM = () => {
             onDragOver={e => handleDragOver(e, col.key)} onDragLeave={handleDragLeave} onDrop={e => handleDrop(e, col.key)}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold">{col.label}</h3>
-              <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>{filteredLeads.filter((l: any) => l.status === col.key).length}</span>
+              <div className="flex items-center gap-1">
+                <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${col.color}/10 text-${col.color}`}>{filteredLeads.filter((l: any) => l.status === col.key).length}</span>
+                {col.key === "novo" && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-0.5 rounded hover:bg-muted transition-colors"><MoreHorizontal className="h-4 w-4 text-muted-foreground" /></button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => {
+                        if (clientFilter !== "all") setNewLead(p => ({ ...p, client_id: clientFilter }));
+                        setShowAdd(true);
+                      }}>
+                        <Plus className="h-4 w-4 mr-2" /> Inserir lead manualmente
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               {filteredLeads.filter((l: any) => l.status === col.key).map((lead: any) => (
@@ -535,18 +558,32 @@ const CRM = () => {
       {/* Add Lead */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent><DialogHeader><DialogTitle>Novo Lead</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome" value={newLead.name} onChange={e => setNewLead(p => ({ ...p, name: e.target.value }))} />
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome *" value={newLead.name} onChange={e => setNewLead(p => ({ ...p, name: e.target.value }))} />
             <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Email" value={newLead.email} onChange={e => setNewLead(p => ({ ...p, email: e.target.value }))} />
             <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Telefone" value={newLead.phone} onChange={e => setNewLead(p => ({ ...p, phone: e.target.value }))} />
             <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newLead.source} onChange={e => setNewLead(p => ({ ...p, source: e.target.value }))}>
               <option>Meta Ads</option><option>Google Ads</option><option>Indicação</option><option>Site</option>
             </select>
             <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newLead.client_id} onChange={e => setNewLead(p => ({ ...p, client_id: e.target.value }))}>
-              <option value="">Selecione o cliente</option>
+              <option value="">Selecione o cliente *</option>
               {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Valor estimado (R$)" value={newLead.value || ""} onChange={e => setNewLead(p => ({ ...p, value: Number(e.target.value) }))} />
+            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={newLead.financing_type} onChange={e => setNewLead(p => ({ ...p, financing_type: e.target.value }))}>
+              <option value="">Tipo de financiamento</option>
+              <option value="financiamento">Financiamento</option>
+              <option value="consorcio">Consórcio</option>
+              <option value="a_vista">À Vista</option>
+              <option value="outro">Outro</option>
+            </select>
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Valor das parcelas" value={newLead.installment_value} onChange={e => setNewLead(p => ({ ...p, installment_value: e.target.value }))} />
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Data de entrada do lead</label>
+              <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={newLead.lead_entry_date} onChange={e => setNewLead(p => ({ ...p, lead_entry_date: e.target.value }))} />
+            </div>
+            <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Tag do vendedor" value={newLead.seller_tag} onChange={e => setNewLead(p => ({ ...p, seller_tag: e.target.value }))} />
+            <textarea className="w-full min-h-[60px] px-3 py-2 rounded-lg bg-muted border-0 text-sm focus:outline-none resize-none" placeholder="Observações" value={newLead.notes} onChange={e => setNewLead(p => ({ ...p, notes: e.target.value }))} />
           </div>
           <DialogFooter><Button onClick={() => { if (newLead.name && newLead.client_id) createLeadMut.mutate(newLead); }} disabled={createLeadMut.isPending}>{createLeadMut.isPending ? "Criando..." : "Adicionar"}</Button></DialogFooter>
         </DialogContent>
