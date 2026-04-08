@@ -180,6 +180,7 @@ const Contratos = () => {
   // Manual % overrides
   const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
   const [importMode, setImportMode] = useState<"new_only" | "all">("new_only");
+  const [importClientFilter, setImportClientFilter] = useState<string>("all");
 
   const distributionPreview = Object.entries(investmentByClient)
     .filter(([_, v]) => v.investment > 0)
