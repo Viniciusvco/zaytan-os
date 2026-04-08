@@ -53,6 +53,7 @@ const CRM = () => {
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [laudoTarget, setLaudoTarget] = useState<any>(null);
 
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
