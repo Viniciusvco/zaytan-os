@@ -549,6 +549,11 @@ const CRM = () => {
               ) : (
                 <button className="text-xs text-primary hover:underline" onClick={() => { setShowTagDialog(selectedLead); setTagInput(""); setSelectedLead(null); }}>+ Atribuir vendedor</button>
               )}
+              {selectedLead.laudo_pdf_url && (
+                <a href={selectedLead.laudo_pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-chart-3 hover:underline inline-flex items-center gap-1">
+                  <FileText className="h-3.5 w-3.5" /> Ver Laudo Anexado
+                </a>
+              )}
               <div className="pt-2 border-t flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => { setLaudoTarget(selectedLead); setSelectedLead(null); }}>
                   <FileText className="h-3.5 w-3.5 mr-1" /> Gerar Laudo
