@@ -285,6 +285,7 @@ export type Database = {
           financing_type: string | null
           id: string
           installment_value: string | null
+          laudo_pdf_url: string | null
           lead_entry_date: string | null
           loss_reason: Database["public"]["Enums"]["loss_reason_type"] | null
           name: string
@@ -303,6 +304,7 @@ export type Database = {
           financing_type?: string | null
           id?: string
           installment_value?: string | null
+          laudo_pdf_url?: string | null
           lead_entry_date?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason_type"] | null
           name: string
@@ -321,6 +323,7 @@ export type Database = {
           financing_type?: string | null
           id?: string
           installment_value?: string | null
+          laudo_pdf_url?: string | null
           lead_entry_date?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason_type"] | null
           name?: string
