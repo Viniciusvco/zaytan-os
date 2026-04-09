@@ -118,21 +118,21 @@ const CRM = () => {
       if (status === "fechado") {
         const lead = leads.find((l: any) => l.id === id);
         if (lead) {
-          // Create juridico card
-          await supabase.from("juridico_cards").upsert({
+          // Create juridico card (ignore if already exists)
+          await supabase.from("juridico_cards").insert({
             lead_id: id,
             client_id: lead.client_id,
             status: "analise_documentacao" as any,
             laudo_url: lead.laudo_pdf_url || null,
-          }, { onConflict: "lead_id" });
+          }).then(() => {});
 
-          // Create payment tracking
-          await supabase.from("payment_tracking").upsert({
+          // Create payment tracking (ignore if already exists)
+          await supabase.from("payment_tracking").insert({
             lead_id: id,
             client_id: lead.client_id,
             seller_name: lead.seller_tag || null,
             valor_parcela: value || lead.value || 0,
-          }, { onConflict: "lead_id" });
+          }).then(() => {});
         }
       }
     },
