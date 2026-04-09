@@ -191,7 +191,11 @@ const CRM = () => {
       setLossReason("nao_atende");
       setLossNote("");
     } else {
-      updateStatus.mutate({ id: lead.id, status });
+      // When moving back from "fechado" or "perdido", clear value/loss_reason
+      const updates: any = { id: lead.id, status };
+      if (lead.status === "fechado") updates.value = 0;
+      if (lead.status === "perdido") updates.loss_reason = null;
+      updateStatus.mutate(updates);
     }
   };
 
@@ -477,7 +481,7 @@ const CRM = () => {
                   )}
                   {lead.loss_reason && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive mt-1 inline-block">{lossReasonLabels[lead.loss_reason as LossReason] || lead.loss_reason}</span>}
                   <div className="flex gap-1 mt-2 flex-wrap">
-                    {col.key !== "novo" && col.key !== "perdido" && (
+                    {col.key !== "novo" && (
                       <button onClick={e => { e.stopPropagation(); const prev = stageColumns[stageColumns.findIndex(c => c.key === col.key) - 1]; if (prev) moveLead(lead, prev.key); }} className="text-[10px] px-2 py-0.5 rounded bg-muted">←</button>
                     )}
                     {col.key !== "fechado" && col.key !== "perdido" && (

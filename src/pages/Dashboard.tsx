@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Navigate } from "react-router-dom";
 import {
@@ -154,6 +155,17 @@ function CSDashboard() {
 
 const Dashboard = () => {
   const { role, colaboradorType, onboardingComplete } = useRole();
+  const { profile, loading } = useAuth();
+
+  // Wait for profile to load to avoid flash-redirecting clients to admin views
+  if (loading || !profile) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   if (role === "cliente") return <ClientDashboard onboardingComplete={onboardingComplete} />;
   if (role === "colaborador") {
     return (
