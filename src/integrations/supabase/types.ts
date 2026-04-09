@@ -469,6 +469,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      nextval_proposal: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "colaborador" | "cliente"
