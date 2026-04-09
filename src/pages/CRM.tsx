@@ -364,6 +364,18 @@ const CRM = () => {
         </div>
       </div>
 
+      {/* Big numbers */}
+      <div className="grid gap-4 grid-cols-5">
+        <div className="metric-card">
+          <p className="text-2xl font-bold">{filteredLeads.length}</p>
+          <p className="text-xs text-muted-foreground">Total de Leads</p>
+        </div>
+        <div className="metric-card"><p className="text-2xl font-bold text-success">{closedCount}</p><p className="text-xs text-muted-foreground">Leads Fechados</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-destructive">{lostCount}</p><p className="text-xs text-muted-foreground">Leads Perdidos</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalFaturado.toLocaleString("pt-BR")}</p><p className="text-xs text-muted-foreground">Valor Faturado</p></div>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 max-w-xs">
@@ -391,18 +403,6 @@ const CRM = () => {
         {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo || searchQuery) && (
           <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); setSearchQuery(""); }}>Limpar filtros</button>
         )}
-      </div>
-
-      {/* Big numbers */}
-      <div className="grid gap-4 grid-cols-5">
-        <div className="metric-card">
-          <p className="text-2xl font-bold">{filteredLeads.length}</p>
-          <p className="text-xs text-muted-foreground">Total de Leads</p>
-        </div>
-        <div className="metric-card"><p className="text-2xl font-bold text-success">{closedCount}</p><p className="text-xs text-muted-foreground">Leads Fechados</p></div>
-        <div className="metric-card"><p className="text-2xl font-bold text-destructive">{lostCount}</p><p className="text-xs text-muted-foreground">Leads Perdidos</p></div>
-        <div className="metric-card"><p className="text-2xl font-bold">{conversionRate}%</p><p className="text-xs text-muted-foreground">Conversão</p></div>
-        <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalFaturado.toLocaleString("pt-BR")}</p><p className="text-xs text-muted-foreground">Valor Faturado</p></div>
       </div>
 
       {/* Kanban */}
