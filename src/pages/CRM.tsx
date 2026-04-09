@@ -396,7 +396,11 @@ const CRM = () => {
                   {lead.financing_type && <p className="text-[10px] text-muted-foreground"><Car className="h-3 w-3 inline mr-1" />{lead.financing_type.replace(/_/g, " ")}</p>}
                   {lead.installment_value && <p className="text-[10px] text-muted-foreground"><CreditCard className="h-3 w-3 inline mr-1" />{lead.installment_value.replace(/_/g, " ").replace(/r\$/i, "R$")}</p>}
                   {(lead.lead_entry_date || lead.created_at) && <p className="text-[10px] text-muted-foreground"><Calendar className="h-3 w-3 inline mr-1" />Entrada: {new Date(lead.lead_entry_date || lead.created_at).toLocaleDateString("pt-BR")}</p>}
-                  {lead.laudo_pdf_url && <a href={lead.laudo_pdf_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[10px] text-chart-3 hover:underline inline-flex items-center gap-1 mt-0.5"><FileText className="h-3 w-3" />Ver Laudo</a>}
+                  {(lead.laudo_data || lead.laudo_pdf_url) && (
+                    <button onClick={e => { e.stopPropagation(); setLaudoTarget(lead); }} className="text-[10px] px-2 py-1 rounded-md bg-green-100 text-green-700 font-semibold inline-flex items-center gap-1 mt-1 border border-green-300 hover:bg-green-200 transition-colors">
+                      <FileText className="h-3 w-3" /> Laudo Gerado
+                    </button>
+                  )}
                   {lead.status === "fechado" && (
                     <div className="flex items-center gap-1">
                       <p className="text-sm font-semibold">R$ {Number(lead.value || 0).toLocaleString()}</p>
@@ -549,10 +553,17 @@ const CRM = () => {
               ) : (
                 <button className="text-xs text-primary hover:underline" onClick={() => { setShowTagDialog(selectedLead); setTagInput(""); setSelectedLead(null); }}>+ Atribuir vendedor</button>
               )}
-              {selectedLead.laudo_pdf_url && (
-                <a href={selectedLead.laudo_pdf_url} target="_blank" rel="noopener noreferrer" className="text-xs text-chart-3 hover:underline inline-flex items-center gap-1">
-                  <FileText className="h-3.5 w-3.5" /> Ver Laudo Anexado
-                </a>
+              {(selectedLead.laudo_data || selectedLead.laudo_pdf_url) && (
+                <div className="flex items-center gap-2">
+                  <button onClick={() => { setLaudoTarget(selectedLead); setSelectedLead(null); }} className="text-xs px-3 py-1.5 rounded-md bg-green-100 text-green-700 font-semibold inline-flex items-center gap-1 border border-green-300 hover:bg-green-200">
+                    <FileText className="h-3.5 w-3.5" /> Ver Laudo Gerado
+                  </button>
+                  {selectedLead.laudo_pdf_url && (
+                    <a href={selectedLead.laudo_pdf_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted-foreground hover:underline">
+                      <Download className="h-3 w-3 inline mr-0.5" />PDF
+                    </a>
+                  )}
+                </div>
               )}
               <div className="pt-2 border-t flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => { setLaudoTarget(selectedLead); setSelectedLead(null); }}>
@@ -611,6 +622,7 @@ const CRM = () => {
         leadId={laudoTarget?.id}
         clientName={laudoTarget?.clients?.name || (clients.find((c: any) => c.id === laudoTarget?.client_id) as any)?.name || ""}
         onPdfSaved={() => qc.invalidateQueries({ queryKey: ["leads"] })}
+        existingLaudoData={laudoTarget?.laudo_data || null}
       />
     </div>
   );
