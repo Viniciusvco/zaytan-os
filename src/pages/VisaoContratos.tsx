@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole } from "@/contexts/RoleContext";
-import { CreditCard, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { CreditCard, AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const VisaoContratos = () => {
   const { role } = useRole();
   const qc = useQueryClient();
   const [clientFilter, setClientFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["payment-tracking"],
@@ -44,12 +47,32 @@ const VisaoContratos = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const filtered = payments.filter((p: any) => clientFilter === "all" || p.client_id === clientFilter);
+  const deletePayment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("payment_tracking").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payment-tracking"] }); setDeleteTarget(null); toast.success("Registro excluído"); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  // Deduplicate by lead_id — keep only the latest entry per lead
+  const deduplicated = useMemo(() => {
+    const byClient = payments.filter((p: any) => clientFilter === "all" || p.client_id === clientFilter);
+    const seen = new Map<string, any>();
+    for (const p of byClient) {
+      const key = `${p.lead_id}_${p.client_id}`;
+      if (!seen.has(key) || (p.created_at > seen.get(key).created_at)) {
+        seen.set(key, p);
+      }
+    }
+    return Array.from(seen.values());
+  }, [payments, clientFilter]);
 
   const today = new Date().toISOString().split("T")[0];
-  const totalRecebiveis = filtered.reduce((s: number, p: any) => s + Number(p.valor_parcela || 0), 0);
-  const inadimplentes = filtered.filter((p: any) => !p.paid && p.due_date && p.due_date < today).length;
-  const liquidados = filtered.filter((p: any) => p.paid).length;
+  const totalRecebiveis = deduplicated.reduce((s: number, p: any) => s + Number(p.valor_parcela || 0), 0);
+  const inadimplentes = deduplicated.filter((p: any) => !p.paid && p.due_date && p.due_date < today).length;
+  const liquidados = deduplicated.filter((p: any) => p.paid).length;
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Carregando...</p></div>;
 
@@ -72,7 +95,7 @@ const VisaoContratos = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="metric-card"><p className="text-2xl font-bold">{filtered.length}</p><p className="text-xs text-muted-foreground">Total de Parcelas</p></div>
+        <div className="metric-card"><p className="text-2xl font-bold">{deduplicated.length}</p><p className="text-xs text-muted-foreground">Total de Parcelas</p></div>
         <div className="metric-card"><p className="text-2xl font-bold">R$ {totalRecebiveis.toLocaleString()}</p><p className="text-xs text-muted-foreground">Total Recebíveis</p></div>
         <div className="metric-card"><p className="text-2xl font-bold text-destructive">{inadimplentes}</p><p className="text-xs text-muted-foreground">Inadimplentes</p></div>
         <div className="metric-card"><p className="text-2xl font-bold text-success">{liquidados}</p><p className="text-xs text-muted-foreground">Liquidados</p></div>
@@ -89,13 +112,14 @@ const VisaoContratos = () => {
               <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Vencimento</th>
               <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
               <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">Pago</th>
+              <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">Ações</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-12 text-muted-foreground text-sm">Nenhum pagamento registrado</td></tr>
+            {deduplicated.length === 0 && (
+              <tr><td colSpan={8} className="text-center py-12 text-muted-foreground text-sm">Nenhum pagamento registrado</td></tr>
             )}
-            {filtered.map((p: any) => {
+            {deduplicated.map((p: any) => {
               const isOverdue = !p.paid && p.due_date && p.due_date < today;
               return (
                 <tr key={p.id} className={`border-b border-border last:border-0 transition-colors ${isOverdue ? "bg-destructive/5" : p.paid ? "bg-success/5" : "hover:bg-muted/30"}`}>
@@ -128,12 +152,31 @@ const VisaoContratos = () => {
                       onCheckedChange={(checked) => togglePaid.mutate({ id: p.id, paid: checked })}
                     />
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <button onClick={() => setDeleteTarget(p)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors" title="Excluir">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </button>
+                  </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Excluir Registro</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Tem certeza que deseja excluir o registro de <strong>{deleteTarget?.leads?.name || "—"}</strong>?</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deletePayment.mutate(deleteTarget.id)} disabled={deletePayment.isPending}>
+              {deletePayment.isPending ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
