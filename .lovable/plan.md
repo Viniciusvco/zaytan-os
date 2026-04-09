@@ -1,31 +1,44 @@
+## Plano: RBAC por Cliente + CRM Jurídico + Performance + Contratos
 
+### Contexto
+Vendedor/Supervisor/Gerente são hierarquias **dentro de cada cliente** (empresa), separadas dos roles da agência (admin/colaborador/cliente).
 
-## Plano: Menu "Mais opções" na coluna "Novo Lead" do Kanban
+### 1. Banco de Dados (Migrações)
 
-### O que será feito
-Adicionar um ícone de três pontos (`MoreHorizontal`) no cabeçalho da coluna "Novo Lead" do Kanban. Ao clicar, exibe um dropdown com a opção "Inserir lead manualmente", que abre o diálogo existente de criação de lead. O formulário será expandido para incluir todos os campos da tabela `leads` (financing_type, installment_value, lead_entry_date, seller_tag, notes). O cliente será pré-selecionado automaticamente quando um filtro de cliente estiver ativo.
+**Enum `client_role_type`**: vendedor | supervisor | gerente
 
-### Detalhes técnicos
+**Tabela `client_user_roles`** — Hierarquia dentro de cada cliente:
+- `client_id`, `user_id` (profile), `client_role` (vendedor/supervisor/gerente)
+- RLS: Admin full, usuários veem seus próprios roles
 
-**Arquivo: `src/pages/CRM.tsx`**
+**Enum `juridico_status`**: analise_documentacao | protocolo_administrativo | ajuizado | concluido
 
-1. **Importações**: Adicionar `MoreHorizontal` de `lucide-react` e `DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger` de `@/components/ui/dropdown-menu`.
+**Tabela `juridico_cards`** — Cards do CRM Jurídico:
+- `lead_id`, `client_id`, `status` (juridico_status)
+- `laudo_url`, `contrato_url`, `notes`, `assigned_to`
+- RLS: Admin full, clientes veem os seus
 
-2. **Estado `newLead`** (linha ~30): Expandir o objeto para incluir os campos adicionais: `financing_type`, `installment_value`, `lead_entry_date`, `seller_tag`, `notes`.
+**Tabela `payment_tracking`** — Controle de pagamentos:
+- `lead_id`, `client_id`, `seller_name`, `valor_parcela`, `due_date`, `paid` (bool), `paid_date`
+- RLS: Admin full, clientes veem os seus
 
-3. **Cabeçalho da coluna Kanban** (linhas ~357-360): Para a coluna `"novo"`, adicionar um `DropdownMenu` com ícone `MoreHorizontal` ao lado do badge de contagem. O item do menu chama `setShowAdd(true)` e, se `clientFilter !== "all"`, pré-seleciona `newLead.client_id` com o valor do filtro ativo.
+### 2. Automação: Comercial → Jurídico
+Ao mover lead para `fechado` no CRM:
+- Criar `juridico_card` automaticamente com laudo e dados
+- Criar `payment_tracking` com valor da venda
 
-4. **Formulário "Adicionar Lead"** (linhas ~538-551): Adicionar campos para:
-   - `financing_type` (select: opções da tabela externa como "financiamento", "consórcio", etc.)
-   - `installment_value` (input texto)
-   - `lead_entry_date` (input date)
-   - `seller_tag` (input texto)
-   - `notes` (textarea)
+### 3. Novas Páginas
 
-5. **Mutação `createLeadMut`** (linha ~146-148): Expandir o insert para enviar os novos campos (`financing_type`, `installment_value`, `lead_entry_date`, `seller_tag`, `notes`).
+**`/crm-juridico`** — Kanban: Análise de Documentação → Protocolo Administrativo → Ajuizado → Concluído
 
-6. **Reset do estado** (linha ~150): Limpar todos os campos novos no `onSuccess`.
+**`/performance`** — Dashboard com gráficos de vendas por vendedor, taxa de conversão, visão por role
 
-### Sem alterações de backend
-A tabela `leads` já possui todos os campos necessários. Nenhuma migração ou edge function precisa ser alterada.
+**Contratos/Pagamentos** — Tabela com status de pagamento, switch para "Liquidado", destaque vermelho para inadimplentes
 
+### 4. RBAC na UI
+- Vendedor: seus leads, seus contratos, suas métricas
+- Supervisor: dados da equipe, comparativos
+- Gerente/Admin: tudo + exportação
+
+### Sem alterações nos roles da agência
+Os roles admin/colaborador/cliente da agência permanecem inalterados.
