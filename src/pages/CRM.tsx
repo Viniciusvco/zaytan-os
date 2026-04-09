@@ -438,7 +438,12 @@ const CRM = () => {
                   className={`kanban-card cursor-grab active:cursor-grabbing ${draggedId === lead.id ? "opacity-40" : ""}`}
                   onClick={() => setSelectedLead(lead)}>
                   <h4 className="text-sm font-medium mb-1">{lead.name}</h4>
-                  <p className="text-xs text-muted-foreground mb-1">{formatSource(lead.source)}</p>
+                  {getSourceTag(lead.source) && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getSourceTag(lead.source)!.className}`}>
+                      {getSourceTag(lead.source)!.label}
+                    </span>
+                  )}
+                  {!getSourceTag(lead.source) && <p className="text-xs text-muted-foreground mb-1">{formatSource(lead.source)}</p>}
                   {isAdmin && <p className="text-[10px] text-primary mb-1">{lead.clients?.name || ""}</p>}
                   {lead.email && <p className="text-[10px] text-muted-foreground truncate"><Mail className="h-3 w-3 inline mr-1" />{lead.email}</p>}
                   {lead.phone && lead.phone !== lead.email && <p className="text-[10px] text-muted-foreground truncate"><Phone className="h-3 w-3 inline mr-1" />{lead.phone}</p>}
@@ -673,6 +678,32 @@ const CRM = () => {
         onPdfSaved={() => qc.invalidateQueries({ queryKey: ["leads"] })}
         existingLaudoData={laudoTarget?.laudo_data || null}
       />
+      {/* Import CSV Dialog */}
+      <Dialog open={showImport} onOpenChange={setShowImport}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Importar Leads via CSV</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Baixe o template para conhecer o formato esperado, preencha e importe.</p>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}><Download className="h-4 w-4 mr-1" /> Baixar Template</Button>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome do Fornecedor de Leads *</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder='Ex: "Banco X", "Parceiro Y"' value={importSupplier} onChange={e => setImportSupplier(e.target.value)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Os leads serão tagueados como "Leads {importSupplier || '[Fornecedor]'}"</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Arquivo CSV *</label>
+              <input type="file" accept=".csv" className="w-full text-sm" onChange={e => setImportFile(e.target.files?.[0] || null)} />
+            </div>
+            {isAdmin && clientFilter === "all" && <p className="text-xs text-destructive">⚠️ Selecione um cliente no filtro do CRM antes de importar</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImport(false)}>Cancelar</Button>
+            <Button onClick={importCSV} disabled={!importFile || !importSupplier.trim() || (isAdmin && clientFilter === "all")}>Importar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
