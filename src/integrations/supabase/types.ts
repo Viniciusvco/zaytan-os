@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_user_roles: {
+        Row: {
+          client_id: string
+          client_role: Database["public"]["Enums"]["client_role_type"]
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          client_role?: Database["public"]["Enums"]["client_role_type"]
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          client_role?: Database["public"]["Enums"]["client_role_type"]
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_user_roles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           active: boolean
@@ -236,6 +278,67 @@ export type Database = {
           },
         ]
       }
+      juridico_cards: {
+        Row: {
+          assigned_to: string | null
+          client_id: string
+          contrato_url: string | null
+          created_at: string
+          id: string
+          laudo_url: string | null
+          lead_id: string
+          notes: string | null
+          status: Database["public"]["Enums"]["juridico_status"]
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id: string
+          contrato_url?: string | null
+          created_at?: string
+          id?: string
+          laudo_url?: string | null
+          lead_id: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["juridico_status"]
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string
+          contrato_url?: string | null
+          created_at?: string
+          id?: string
+          laudo_url?: string | null
+          lead_id?: string
+          notes?: string | null
+          status?: Database["public"]["Enums"]["juridico_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "juridico_cards_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "juridico_cards_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "juridico_cards_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_distribution_config: {
         Row: {
           active: boolean
@@ -344,6 +447,60 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_tracking: {
+        Row: {
+          client_id: string
+          created_at: string
+          due_date: string | null
+          id: string
+          lead_id: string
+          paid: boolean
+          paid_date: string | null
+          seller_name: string | null
+          updated_at: string
+          valor_parcela: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          lead_id: string
+          paid?: boolean
+          paid_date?: string | null
+          seller_name?: string | null
+          updated_at?: string
+          valor_parcela?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          lead_id?: string
+          paid?: boolean
+          paid_date?: string | null
+          seller_name?: string | null
+          updated_at?: string
+          valor_parcela?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_tracking_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_tracking_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
             referencedColumns: ["id"]
           },
         ]
@@ -473,12 +630,18 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "colaborador" | "cliente"
+      client_role_type: "vendedor" | "supervisor" | "gerente"
       colaborador_subtype: "gestor" | "designer" | "cs"
       contract_status: "rascunho" | "ativo" | "cancelado" | "aguardando"
       demand_priority: "baixa" | "media" | "alta" | "critica"
       demand_specialty: "trafego" | "design" | "cs"
       demand_status: "backlog" | "em_progresso" | "revisao" | "concluido"
       financial_type: "receita" | "despesa"
+      juridico_status:
+        | "analise_documentacao"
+        | "protocolo_administrativo"
+        | "ajuizado"
+        | "concluido"
       lead_status:
         | "novo"
         | "contatado"
@@ -622,12 +785,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "colaborador", "cliente"],
+      client_role_type: ["vendedor", "supervisor", "gerente"],
       colaborador_subtype: ["gestor", "designer", "cs"],
       contract_status: ["rascunho", "ativo", "cancelado", "aguardando"],
       demand_priority: ["baixa", "media", "alta", "critica"],
       demand_specialty: ["trafego", "design", "cs"],
       demand_status: ["backlog", "em_progresso", "revisao", "concluido"],
       financial_type: ["receita", "despesa"],
+      juridico_status: [
+        "analise_documentacao",
+        "protocolo_administrativo",
+        "ajuizado",
+        "concluido",
+      ],
       lead_status: [
         "novo",
         "contatado",
