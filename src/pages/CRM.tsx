@@ -54,6 +54,9 @@ const CRM = () => {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [laudoTarget, setLaudoTarget] = useState<any>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importSupplier, setImportSupplier] = useState("");
 
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
@@ -264,8 +267,83 @@ const CRM = () => {
 
   const formatSource = (source: string | null) => {
     if (!source) return "—";
-    if (source === "leads_laportec_star5") return "Meta Ads";
+    if (source === "leads_laportec_star5") return "Leads Zaytan";
+    if (source.startsWith("import_")) return `Leads ${source.replace("import_", "")}`;
     return source;
+  };
+
+  const getSourceTag = (source: string | null) => {
+    if (!source) return null;
+    if (source === "leads_laportec_star5") return { label: "Leads Zaytan", className: "bg-primary/10 text-primary" };
+    if (source.startsWith("import_")) return { label: `Leads ${source.replace("import_", "")}`, className: "bg-chart-3/10 text-chart-3" };
+    return null;
+  };
+
+  const downloadTemplate = () => {
+    const headers = ["Nome", "Email", "Telefone", "Valor", "Tipo Financiamento", "Valor Parcelas", "Vendedor", "Observações"];
+    const example = ["João Silva", "joao@email.com", "(11)99999-0000", "50000", "financiamento", "R$ 1.200", "Carlos", "Lead qualificado"];
+    const csv = [headers.join(","), example.join(",")].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "template-importacao-leads.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importCSV = async () => {
+    if (!importFile || !importSupplier.trim()) { toast.error("Informe o fornecedor de leads"); return; }
+    const clientId = isClient ? undefined : (clientFilter !== "all" ? clientFilter : undefined);
+    if (isAdmin && !clientId) { toast.error("Selecione um cliente no filtro antes de importar"); return; }
+    
+    const text = await importFile.text();
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) { toast.error("CSV deve ter pelo menos 1 lead"); return; }
+    
+    const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim());
+    const nameIdx = headers.findIndex(h => /nome/i.test(h));
+    if (nameIdx < 0) { toast.error("Coluna 'Nome' é obrigatória"); return; }
+    
+    const emailIdx = headers.findIndex(h => /email/i.test(h));
+    const phoneIdx = headers.findIndex(h => /telefone|phone/i.test(h));
+    const valueIdx = headers.findIndex(h => /valor(?! parc)/i.test(h));
+    const finTypeIdx = headers.findIndex(h => /tipo.*financ/i.test(h));
+    const installIdx = headers.findIndex(h => /parcela/i.test(h));
+    const sellerIdx = headers.findIndex(h => /vendedor/i.test(h));
+    const notesIdx = headers.findIndex(h => /observ|notas|notes/i.test(h));
+
+    const leadsToInsert = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(",").map(v => v.replace(/^"|"$/g, "").trim());
+      const name = vals[nameIdx];
+      if (!name) continue;
+      leadsToInsert.push({
+        name,
+        email: emailIdx >= 0 ? vals[emailIdx] || null : null,
+        phone: phoneIdx >= 0 ? vals[phoneIdx] || null : null,
+        value: valueIdx >= 0 ? Number(vals[valueIdx]?.replace(/[^\d.-]/g, "")) || null : null,
+        financing_type: finTypeIdx >= 0 ? vals[finTypeIdx] || null : null,
+        installment_value: installIdx >= 0 ? vals[installIdx] || null : null,
+        seller_tag: sellerIdx >= 0 ? vals[sellerIdx] || null : null,
+        notes: notesIdx >= 0 ? vals[notesIdx] || null : null,
+        source: `import_${importSupplier.trim()}`,
+        status: "novo" as const,
+        client_id: clientId!,
+        lead_entry_date: new Date().toISOString(),
+      });
+    }
+
+    if (leadsToInsert.length === 0) { toast.error("Nenhum lead válido encontrado"); return; }
+
+    const { error } = await supabase.from("leads").insert(leadsToInsert);
+    if (error) { toast.error("Erro ao importar: " + error.message); return; }
+    
+    qc.invalidateQueries({ queryKey: ["leads"] });
+    toast.success(`${leadsToInsert.length} leads importados como "Leads ${importSupplier.trim()}"`);
+    setShowImport(false);
+    setImportFile(null);
+    setImportSupplier("");
   };
 
   const content = (
