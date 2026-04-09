@@ -217,26 +217,10 @@ const CRM = () => {
   const conversionRate = filteredLeads.length > 0 ? Math.round((closedCount / filteredLeads.length) * 100) : 0;
   const totalFaturado = closedLeads.reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
 
-  const lostLeads = filteredLeads.filter((l: any) => l.status === "perdido" && l.loss_reason);
-  const lossBreakdown = Object.entries(lossReasonLabels).map(([key, label]) => ({
-    name: label,
-    value: lostLeads.filter((l: any) => l.loss_reason === key).length,
-  })).filter(d => d.value > 0);
-
-  // Leads by seller chart data
-  const leadsBySellerData = useMemo(() => {
-    const sellerMap: Record<string, number> = {};
-    filteredLeads.forEach((l: any) => {
-      const tag = l.seller_tag || "Sem vendedor";
-      sellerMap[tag] = (sellerMap[tag] || 0) + 1;
-    });
-    return Object.entries(sellerMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [filteredLeads]);
 
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
   const canAddLeads = isAdmin;
-  const showChart = isAdmin || isClient;
 
   const [syncing, setSyncing] = useState(false);
   const syncLeads = async () => {
