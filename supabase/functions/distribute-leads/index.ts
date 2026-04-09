@@ -25,7 +25,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse body
     let percentOverrides: Record<string, number> | undefined;
     let importMode: "new_only" | "all" = "new_only";
     let targetClientIds: string[] | undefined;
@@ -33,7 +32,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       percentOverrides = body?.percent_overrides;
       importMode = body?.import_mode === "all" ? "all" : "new_only";
-      targetClientIds = body?.target_client_ids; // specific clients to import for
+      targetClientIds = body?.target_client_ids;
     } catch {
       // no body is fine
     }
@@ -69,7 +68,6 @@ Deno.serve(async (req) => {
       clientInvestments[cid].investment += Number(c.weekly_investment);
     }
 
-    // If target clients specified, filter to only those
     let clientIds = Object.keys(clientInvestments);
     if (targetClientIds && targetClientIds.length > 0) {
       clientIds = clientIds.filter(cid => targetClientIds!.includes(cid));
@@ -113,7 +111,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Get existing leads per target client to check for duplicates (by ext_id)
+    // Get existing leads per target client (by ext_id)
     const existingLeadsByClient: Record<string, Map<string, { id: string; status: string }>> = {};
     for (const cid of clientIds) {
       const { data: existingLeads } = await supabase
@@ -153,81 +151,66 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Collect ALL unique ext_ids already synced across ALL target clients
+    // Collect ALL ext_ids already synced across ALL target clients
     const allSyncedExtIds = new Set<string>();
     for (const cid of clientIds) {
       for (const extId of existingLeadsByClient[cid].keys()) {
-        allSyncedExtIds.add(`${cid}:${extId}`);
+        allSyncedExtIds.add(extId);
       }
     }
 
-    const totalLeads = allExternalLeads.length;
-
-    // Distribute leads based on percentages
-    const shares: { clientId: string; raw: number; rounded: number }[] = clientIds.map((cid) => {
-      const pct = clientPercentages[cid] / 100;
-      return { clientId: cid, raw: pct * totalLeads, rounded: Math.floor(pct * totalLeads) };
+    // Separate new leads from existing ones
+    const newExternalLeads = allExternalLeads.filter(lead => {
+      const extId = String(lead["ID Lead"]);
+      return !allSyncedExtIds.has(extId);
     });
 
-    let distributed = shares.reduce((s, sh) => s + sh.rounded, 0);
-    let remainder = totalLeads - distributed;
-    const byFraction = [...shares].sort((a, b) => (b.raw - b.rounded) - (a.raw - a.rounded));
-    for (let i = 0; i < remainder; i++) {
-      byFraction[i % byFraction.length].rounded++;
-    }
+    const existingExternalLeads = allExternalLeads.filter(lead => {
+      const extId = String(lead["ID Lead"]);
+      return allSyncedExtIds.has(extId);
+    });
 
-    const assignmentMap: Record<string, number> = {};
-    for (const sh of shares) {
-      assignmentMap[sh.clientId] = sh.rounded;
-    }
+    // For new_only mode: distribute ONLY new leads based on percentages
+    // For all mode: also update existing leads data (without changing status)
+    const leadsToDistribute = importMode === "new_only" ? newExternalLeads : newExternalLeads;
+    const totalNewLeads = leadsToDistribute.length;
 
-    // Assign leads to clients
-    const clientQueues: Record<string, number> = { ...assignmentMap };
-    const leadAssignments: Array<{ lead: any; clientId: string }> = [];
-
-    for (const lead of allExternalLeads) {
-      let bestClient = clientIds[0];
-      let bestRemaining = 0;
-      for (const cid of clientIds) {
-        if ((clientQueues[cid] || 0) > bestRemaining) {
-          bestRemaining = clientQueues[cid];
-          bestClient = cid;
-        }
-      }
-      clientQueues[bestClient]--;
-      leadAssignments.push({ lead, clientId: bestClient });
-    }
-
-    // Now process: insert new, skip/update existing (NEVER change status of existing leads)
+    // Distribute NEW leads based on percentages
     const leadsToInsert: any[] = [];
-    const leadsToUpdate: any[] = [];
-    const skippedCount: Record<string, number> = {};
     const insertedCount: Record<string, number> = {};
 
-    for (const { lead, clientId } of leadAssignments) {
-      const extId = String(lead["ID Lead"]);
-      const existingMap = existingLeadsByClient[clientId];
-      const existing = existingMap.get(extId);
+    if (totalNewLeads > 0) {
+      const shares: { clientId: string; raw: number; rounded: number }[] = clientIds.map((cid) => {
+        const pct = clientPercentages[cid] / 100;
+        return { clientId: cid, raw: pct * totalNewLeads, rounded: Math.floor(pct * totalNewLeads) };
+      });
 
-      if (existing) {
-        if (importMode === "all") {
-          // Update non-status fields only (preserve kanban position)
-          leadsToUpdate.push({
-            id: existing.id,
-            name: lead["Nome"] || "Lead sem nome",
-            email: lead["Email"] || null,
-            phone: lead["Telefone"] || null,
-            financing_type: lead["Qual tipo de financiamento"] || null,
-            installment_value: lead["Valor das parcelas"] || null,
-            lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
-            // DO NOT update status - preserve kanban position
-          });
+      let distributed = shares.reduce((s, sh) => s + sh.rounded, 0);
+      let remainder = totalNewLeads - distributed;
+      const byFraction = [...shares].sort((a, b) => (b.raw - b.rounded) - (a.raw - a.rounded));
+      for (let i = 0; i < remainder; i++) {
+        byFraction[i % byFraction.length].rounded++;
+      }
+
+      const clientQueues: Record<string, number> = {};
+      for (const sh of shares) {
+        clientQueues[sh.clientId] = sh.rounded;
+      }
+
+      for (const lead of leadsToDistribute) {
+        let bestClient = clientIds[0];
+        let bestRemaining = 0;
+        for (const cid of clientIds) {
+          if ((clientQueues[cid] || 0) > bestRemaining) {
+            bestRemaining = clientQueues[cid];
+            bestClient = cid;
+          }
         }
-        skippedCount[clientId] = (skippedCount[clientId] || 0) + 1;
-      } else {
-        // New lead for this client
+        clientQueues[bestClient]--;
+
+        const extId = String(lead["ID Lead"]);
         leadsToInsert.push({
-          client_id: clientId,
+          client_id: bestClient,
           name: lead["Nome"] || "Lead sem nome",
           email: lead["Email"] || null,
           phone: lead["Telefone"] || null,
@@ -238,7 +221,37 @@ Deno.serve(async (req) => {
           installment_value: lead["Valor das parcelas"] || null,
           lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
         });
-        insertedCount[clientId] = (insertedCount[clientId] || 0) + 1;
+        insertedCount[bestClient] = (insertedCount[bestClient] || 0) + 1;
+      }
+    }
+
+    // Handle existing leads update (only in "all" mode, never change status)
+    const leadsToUpdate: any[] = [];
+    const skippedCount: Record<string, number> = {};
+
+    if (importMode === "all") {
+      for (const lead of existingExternalLeads) {
+        const extId = String(lead["ID Lead"]);
+        for (const cid of clientIds) {
+          const existing = existingLeadsByClient[cid].get(extId);
+          if (existing) {
+            leadsToUpdate.push({
+              id: existing.id,
+              name: lead["Nome"] || "Lead sem nome",
+              email: lead["Email"] || null,
+              phone: lead["Telefone"] || null,
+              financing_type: lead["Qual tipo de financiamento"] || null,
+              installment_value: lead["Valor das parcelas"] || null,
+              lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
+            });
+            skippedCount[cid] = (skippedCount[cid] || 0) + 1;
+          }
+        }
+      }
+    } else {
+      // Count skipped for reporting
+      for (const cid of clientIds) {
+        skippedCount[cid] = existingLeadsByClient[cid].size;
       }
     }
 
@@ -257,7 +270,7 @@ Deno.serve(async (req) => {
       totalInserted += batch.length;
     }
 
-    // Batch update existing leads (data only, no status change)
+    // Batch update existing leads
     let totalUpdated = 0;
     for (const upd of leadsToUpdate) {
       const { id, ...fields } = upd;
@@ -278,7 +291,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        total_external_leads: totalLeads,
+        total_external_leads: allExternalLeads.length,
+        total_new_leads: totalNewLeads,
         total_inserted: totalInserted,
         total_updated: totalUpdated,
         distribution,
