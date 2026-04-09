@@ -190,14 +190,18 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {Object.entries(groups).map(([key, items]) => (
-          <SidebarGroup key={key}>
-            <SidebarGroupLabel>{groupLabels[key] || key}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>{renderItems(items)}</SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {Object.entries(groups).map(([key, items]) => {
+          const visibleItems = filterHidden(items);
+          if (visibleItems.length === 0) return null;
+          return (
+            <SidebarGroup key={key}>
+              <SidebarGroupLabel>{groupLabels[key] || key}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>{renderItems(items)}</SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
       <SidebarFooter className="p-3">
         {!collapsed && (
