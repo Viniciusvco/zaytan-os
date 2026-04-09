@@ -113,8 +113,30 @@ const CRM = () => {
       if (notes !== undefined) update.notes = notes;
       const { error } = await supabase.from("leads").update(update).eq("id", id);
       if (error) throw error;
+
+      // Auto-create juridico card + payment tracking when closing
+      if (status === "fechado") {
+        const lead = leads.find((l: any) => l.id === id);
+        if (lead) {
+          // Create juridico card
+          await supabase.from("juridico_cards").upsert({
+            lead_id: id,
+            client_id: lead.client_id,
+            status: "analise_documentacao" as any,
+            laudo_url: lead.laudo_pdf_url || null,
+          }, { onConflict: "lead_id" });
+
+          // Create payment tracking
+          await supabase.from("payment_tracking").upsert({
+            lead_id: id,
+            client_id: lead.client_id,
+            seller_name: lead.seller_tag || null,
+            valor_parcela: value || lead.value || 0,
+          }, { onConflict: "lead_id" });
+        }
+      }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); setMoveTarget(null); setLossNote(""); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["leads"] }); qc.invalidateQueries({ queryKey: ["juridico-cards"] }); qc.invalidateQueries({ queryKey: ["payment-tracking"] }); setMoveTarget(null); setLossNote(""); },
     onError: (e: any) => toast.error(e.message),
   });
 
