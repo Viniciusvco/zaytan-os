@@ -326,42 +326,6 @@ const CRM = () => {
         <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalFaturado.toLocaleString("pt-BR")}</p><p className="text-xs text-muted-foreground">Valor Faturado</p></div>
       </div>
 
-      {/* Charts side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Leads by seller - vertical bars */}
-        {leadsBySellerData.length > 0 && (
-          <div className="metric-card">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4" />Leads por Vendedor</h3>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leadsBySellerData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }} className="my-[41px] pr-[25px]">
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Leads">
-                    <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "hsl(var(--foreground))" }} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Loss reasons pie */}
-        {showChart && lossBreakdown.length > 0 && (
-          <div className="metric-card">
-            <h3 className="text-sm font-semibold mb-3">Motivos de Perda</h3>
-            <div className="grid grid-cols-1 gap-4 items-center">
-              <div className="h-[160px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={lossBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>{lossBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} /></PieChart></ResponsiveContainer></div>
-              <div className="space-y-2">{lossBreakdown.map((d, i) => (
-                <div key={d.name} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} /><span className="text-muted-foreground">{d.name}</span></div><span className="font-bold">{d.value}</span></div>
-              ))}</div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto">
         {stageColumns.map(col => (
