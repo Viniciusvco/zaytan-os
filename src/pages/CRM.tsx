@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search, MoreHorizontal, FileText } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Upload, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, Search, MoreHorizontal, FileText } from "lucide-react";
 import { LaudoGenerator } from "@/components/LaudoGenerator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from "recharts";
+
 import { toast } from "sonner";
 
 type LeadStatus = "novo" | "contatado" | "qualificado" | "fechado" | "perdido";
@@ -22,7 +22,7 @@ const stageColumns: { key: LeadStatus; label: string; color: string }[] = [
   { key: "perdido", label: "Perdido", color: "destructive" },
 ];
 
-const COLORS = ["hsl(0, 72%, 51%)", "hsl(220, 70%, 50%)", "hsl(262, 60%, 55%)", "hsl(35, 90%, 55%)", "hsl(152, 60%, 42%)", "hsl(180, 50%, 45%)"];
+
 
 const CRM = () => {
   const { role } = useRole();
