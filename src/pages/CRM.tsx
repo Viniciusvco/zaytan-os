@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { ComingSoon } from "@/components/ComingSoon";
-import { Plus, Phone, Mail, ExternalLink, Download, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, BarChart3, Search, MoreHorizontal, FileText } from "lucide-react";
+import { Plus, Phone, Mail, ExternalLink, Download, Upload, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, Search, MoreHorizontal, FileText } from "lucide-react";
 import { LaudoGenerator } from "@/components/LaudoGenerator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from "recharts";
+
 import { toast } from "sonner";
 
 type LeadStatus = "novo" | "contatado" | "qualificado" | "fechado" | "perdido";
@@ -22,7 +22,7 @@ const stageColumns: { key: LeadStatus; label: string; color: string }[] = [
   { key: "perdido", label: "Perdido", color: "destructive" },
 ];
 
-const COLORS = ["hsl(0, 72%, 51%)", "hsl(220, 70%, 50%)", "hsl(262, 60%, 55%)", "hsl(35, 90%, 55%)", "hsl(152, 60%, 42%)", "hsl(180, 50%, 45%)"];
+
 
 const CRM = () => {
   const { role } = useRole();
@@ -54,6 +54,9 @@ const CRM = () => {
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [laudoTarget, setLaudoTarget] = useState<any>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importSupplier, setImportSupplier] = useState("");
 
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
@@ -217,26 +220,10 @@ const CRM = () => {
   const conversionRate = filteredLeads.length > 0 ? Math.round((closedCount / filteredLeads.length) * 100) : 0;
   const totalFaturado = closedLeads.reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
 
-  const lostLeads = filteredLeads.filter((l: any) => l.status === "perdido" && l.loss_reason);
-  const lossBreakdown = Object.entries(lossReasonLabels).map(([key, label]) => ({
-    name: label,
-    value: lostLeads.filter((l: any) => l.loss_reason === key).length,
-  })).filter(d => d.value > 0);
-
-  // Leads by seller chart data
-  const leadsBySellerData = useMemo(() => {
-    const sellerMap: Record<string, number> = {};
-    filteredLeads.forEach((l: any) => {
-      const tag = l.seller_tag || "Sem vendedor";
-      sellerMap[tag] = (sellerMap[tag] || 0) + 1;
-    });
-    return Object.entries(sellerMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [filteredLeads]);
 
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
   const canAddLeads = isAdmin;
-  const showChart = isAdmin || isClient;
 
   const [syncing, setSyncing] = useState(false);
   const syncLeads = async () => {
@@ -280,8 +267,83 @@ const CRM = () => {
 
   const formatSource = (source: string | null) => {
     if (!source) return "—";
-    if (source === "leads_laportec_star5") return "Meta Ads";
+    if (source === "leads_laportec_star5") return "Leads Zaytan";
+    if (source.startsWith("import_")) return `Leads ${source.replace("import_", "")}`;
     return source;
+  };
+
+  const getSourceTag = (source: string | null) => {
+    if (!source) return null;
+    if (source === "leads_laportec_star5") return { label: "Leads Zaytan", className: "bg-primary/10 text-primary" };
+    if (source.startsWith("import_")) return { label: `Leads ${source.replace("import_", "")}`, className: "bg-chart-3/10 text-chart-3" };
+    return null;
+  };
+
+  const downloadTemplate = () => {
+    const headers = ["Nome", "Email", "Telefone", "Valor", "Tipo Financiamento", "Valor Parcelas", "Vendedor", "Observações"];
+    const example = ["João Silva", "joao@email.com", "(11)99999-0000", "50000", "financiamento", "R$ 1.200", "Carlos", "Lead qualificado"];
+    const csv = [headers.join(","), example.join(",")].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "template-importacao-leads.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importCSV = async () => {
+    if (!importFile || !importSupplier.trim()) { toast.error("Informe o fornecedor de leads"); return; }
+    const clientId = isClient ? undefined : (clientFilter !== "all" ? clientFilter : undefined);
+    if (isAdmin && !clientId) { toast.error("Selecione um cliente no filtro antes de importar"); return; }
+    
+    const text = await importFile.text();
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) { toast.error("CSV deve ter pelo menos 1 lead"); return; }
+    
+    const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").trim());
+    const nameIdx = headers.findIndex(h => /nome/i.test(h));
+    if (nameIdx < 0) { toast.error("Coluna 'Nome' é obrigatória"); return; }
+    
+    const emailIdx = headers.findIndex(h => /email/i.test(h));
+    const phoneIdx = headers.findIndex(h => /telefone|phone/i.test(h));
+    const valueIdx = headers.findIndex(h => /valor(?! parc)/i.test(h));
+    const finTypeIdx = headers.findIndex(h => /tipo.*financ/i.test(h));
+    const installIdx = headers.findIndex(h => /parcela/i.test(h));
+    const sellerIdx = headers.findIndex(h => /vendedor/i.test(h));
+    const notesIdx = headers.findIndex(h => /observ|notas|notes/i.test(h));
+
+    const leadsToInsert = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = lines[i].split(",").map(v => v.replace(/^"|"$/g, "").trim());
+      const name = vals[nameIdx];
+      if (!name) continue;
+      leadsToInsert.push({
+        name,
+        email: emailIdx >= 0 ? vals[emailIdx] || null : null,
+        phone: phoneIdx >= 0 ? vals[phoneIdx] || null : null,
+        value: valueIdx >= 0 ? Number(vals[valueIdx]?.replace(/[^\d.-]/g, "")) || null : null,
+        financing_type: finTypeIdx >= 0 ? vals[finTypeIdx] || null : null,
+        installment_value: installIdx >= 0 ? vals[installIdx] || null : null,
+        seller_tag: sellerIdx >= 0 ? vals[sellerIdx] || null : null,
+        notes: notesIdx >= 0 ? vals[notesIdx] || null : null,
+        source: `import_${importSupplier.trim()}`,
+        status: "novo" as const,
+        client_id: clientId!,
+        lead_entry_date: new Date().toISOString(),
+      });
+    }
+
+    if (leadsToInsert.length === 0) { toast.error("Nenhum lead válido encontrado"); return; }
+
+    const { error } = await supabase.from("leads").insert(leadsToInsert);
+    if (error) { toast.error("Erro ao importar: " + error.message); return; }
+    
+    qc.invalidateQueries({ queryKey: ["leads"] });
+    toast.success(`${leadsToInsert.length} leads importados como "Leads ${importSupplier.trim()}"`);
+    setShowImport(false);
+    setImportFile(null);
+    setImportSupplier("");
   };
 
   const content = (
@@ -297,6 +359,7 @@ const CRM = () => {
             {syncing ? "Sincronizando..." : "Carregar Leads"}
           </Button>
           <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Exportar CSV</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>
           {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
         </div>
       </div>
@@ -342,42 +405,6 @@ const CRM = () => {
         <div className="metric-card"><p className="text-2xl font-bold text-success">R$ {totalFaturado.toLocaleString("pt-BR")}</p><p className="text-xs text-muted-foreground">Valor Faturado</p></div>
       </div>
 
-      {/* Charts side by side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Leads by seller - vertical bars */}
-        {leadsBySellerData.length > 0 && (
-          <div className="metric-card">
-            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><BarChart3 className="h-4 w-4" />Leads por Vendedor</h3>
-            <div className="h-[220px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leadsBySellerData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }} className="my-[41px] pr-[25px]">
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} textAnchor="end" height={50} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Leads">
-                    <LabelList dataKey="value" position="top" style={{ fontSize: 11, fontWeight: 600, fill: "hsl(var(--foreground))" }} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
-
-        {/* Loss reasons pie */}
-        {showChart && lossBreakdown.length > 0 && (
-          <div className="metric-card">
-            <h3 className="text-sm font-semibold mb-3">Motivos de Perda</h3>
-            <div className="grid grid-cols-1 gap-4 items-center">
-              <div className="h-[160px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={lossBreakdown} cx="50%" cy="50%" innerRadius={40} outerRadius={70} dataKey="value" paddingAngle={3}>{lossBreakdown.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} /></PieChart></ResponsiveContainer></div>
-              <div className="space-y-2">{lossBreakdown.map((d, i) => (
-                <div key={d.name} className="flex items-center justify-between text-xs"><div className="flex items-center gap-2"><div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} /><span className="text-muted-foreground">{d.name}</span></div><span className="font-bold">{d.value}</span></div>
-              ))}</div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Kanban */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 overflow-x-auto">
         {stageColumns.map(col => (
@@ -411,7 +438,12 @@ const CRM = () => {
                   className={`kanban-card cursor-grab active:cursor-grabbing ${draggedId === lead.id ? "opacity-40" : ""}`}
                   onClick={() => setSelectedLead(lead)}>
                   <h4 className="text-sm font-medium mb-1">{lead.name}</h4>
-                  <p className="text-xs text-muted-foreground mb-1">{formatSource(lead.source)}</p>
+                  {getSourceTag(lead.source) && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${getSourceTag(lead.source)!.className}`}>
+                      {getSourceTag(lead.source)!.label}
+                    </span>
+                  )}
+                  {!getSourceTag(lead.source) && <p className="text-xs text-muted-foreground mb-1">{formatSource(lead.source)}</p>}
                   {isAdmin && <p className="text-[10px] text-primary mb-1">{lead.clients?.name || ""}</p>}
                   {lead.email && <p className="text-[10px] text-muted-foreground truncate"><Mail className="h-3 w-3 inline mr-1" />{lead.email}</p>}
                   {lead.phone && lead.phone !== lead.email && <p className="text-[10px] text-muted-foreground truncate"><Phone className="h-3 w-3 inline mr-1" />{lead.phone}</p>}
@@ -646,6 +678,32 @@ const CRM = () => {
         onPdfSaved={() => qc.invalidateQueries({ queryKey: ["leads"] })}
         existingLaudoData={laudoTarget?.laudo_data || null}
       />
+      {/* Import CSV Dialog */}
+      <Dialog open={showImport} onOpenChange={setShowImport}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Importar Leads via CSV</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Baixe o template para conhecer o formato esperado, preencha e importe.</p>
+              <Button variant="outline" size="sm" onClick={downloadTemplate}><Download className="h-4 w-4 mr-1" /> Baixar Template</Button>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome do Fornecedor de Leads *</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder='Ex: "Banco X", "Parceiro Y"' value={importSupplier} onChange={e => setImportSupplier(e.target.value)} />
+              <p className="text-[10px] text-muted-foreground mt-1">Os leads serão tagueados como "Leads {importSupplier || '[Fornecedor]'}"</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">Arquivo CSV *</label>
+              <input type="file" accept=".csv" className="w-full text-sm" onChange={e => setImportFile(e.target.files?.[0] || null)} />
+            </div>
+            {isAdmin && clientFilter === "all" && <p className="text-xs text-destructive">⚠️ Selecione um cliente no filtro do CRM antes de importar</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImport(false)}>Cancelar</Button>
+            <Button onClick={importCSV} disabled={!importFile || !importSupplier.trim() || (isAdmin && clientFilter === "all")}>Importar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 

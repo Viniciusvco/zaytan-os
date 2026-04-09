@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useRole } from "@/contexts/RoleContext";
-import { BarChart3, TrendingUp, Target, Users, DollarSign, Award } from "lucide-react";
+import { useRole, lossReasonLabels, LossReason } from "@/contexts/RoleContext";
+import { ComingSoon } from "@/components/ComingSoon";
+import { BarChart3, TrendingUp, Target, Users, DollarSign, Award, AlertTriangle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell } from "recharts";
 
 const COLORS = ["hsl(17, 100%, 58%)", "hsl(210, 100%, 56%)", "hsl(45, 100%, 51%)", "hsl(142, 71%, 45%)", "hsl(262, 60%, 55%)", "hsl(180, 50%, 45%)"];
@@ -66,6 +67,15 @@ const Performance = () => {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filtered]);
 
+  // Loss reasons breakdown
+  const lossReasonStats = useMemo(() => {
+    const lostLeads = filtered.filter((l: any) => l.status === "perdido" && l.loss_reason);
+    return Object.entries(lossReasonLabels).map(([key, label]) => ({
+      name: label,
+      value: lostLeads.filter((l: any) => l.loss_reason === key).length,
+    })).filter(d => d.value > 0);
+  }, [filtered]);
+
   // Client ranking
   const clientStats = useMemo(() => {
     const map: Record<string, { name: string; total: number; closed: number; revenue: number }> = {};
@@ -87,7 +97,7 @@ const Performance = () => {
   const totalRevenue = filtered.filter((l: any) => l.status === "fechado").reduce((s: number, l: any) => s + Number(l.value || 0), 0);
   const conversionRate = totalLeads > 0 ? Math.round((closedLeads / totalLeads) * 100) : 0;
 
-  return (
+  const content = (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
         <div>
@@ -135,7 +145,45 @@ const Performance = () => {
           </div>
         </div>
 
-        {/* Origem dos leads */}
+        {/* Motivos de Perda */}
+        <div className="metric-card">
+          <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive" /> Motivos de Perda
+          </h3>
+          <div className="h-[280px]">
+            {lossReasonStats.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 h-full">
+                <div className="h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={lossReasonStats} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" paddingAngle={3}>
+                        {lossReasonStats.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px", color: "hsl(var(--foreground))" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="space-y-1.5">
+                  {lossReasonStats.map((d, i) => (
+                    <div key={d.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        <span className="text-muted-foreground">{d.name}</span>
+                      </div>
+                      <span className="font-bold">{d.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-12">Sem leads perdidos</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Origem dos leads */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="metric-card">
           <h3 className="text-sm font-semibold mb-4">Origem dos Leads</h3>
           <div className="h-[280px]">
@@ -196,6 +244,8 @@ const Performance = () => {
       )}
     </div>
   );
+
+  return <ComingSoon>{content}</ComingSoon>;
 };
 
 export default Performance;

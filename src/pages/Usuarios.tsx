@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Power, PowerOff, Pencil, Trash2 } from "lucide-react";
+import { Plus, Power, PowerOff, Pencil, Trash2, Eye, EyeOff, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
 type AppRole = "admin" | "colaborador" | "cliente";
@@ -18,6 +19,18 @@ const typeConfig: Record<string, { label: string; className: string }> = {
 };
 
 const colabLabels: Record<ColabType, string> = { gestor: "Gestor de Tráfego", designer: "Designer", cs: "CS" };
+
+const ALL_VIEWS = [
+  { key: "feedbacks", label: "Feedbacks" },
+  { key: "minha-equipe", label: "Minha Equipe" },
+  { key: "suporte", label: "Suporte" },
+  { key: "academy", label: "Academy" },
+  { key: "onboarding", label: "Onboarding" },
+  { key: "crm-juridico", label: "CRM Jurídico" },
+  { key: "visao-contratos", label: "Contratos & Pagamentos" },
+  { key: "crm", label: "CRM" },
+  { key: "demandas", label: "Demandas" },
+];
 
 function calcLifetime(startDate: string | null): string {
   if (!startDate) return "—";
@@ -37,6 +50,7 @@ const Usuarios = () => {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "cliente" as AppRole, colaborador_type: "gestor" as ColabType });
   const [editUser, setEditUser] = useState<any>(null);
   const [deleteUserId, setDeleteUserId] = useState<any>(null);
+  const [visibilityClient, setVisibilityClient] = useState<string | null>(null);
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ["profiles"],
@@ -47,20 +61,58 @@ const Usuarios = () => {
     },
   });
 
-  const createMut = useMutation({
-    mutationFn: async () => {
-      const { error } = await createUser(
-        form.email, form.password, form.name, form.role,
-        form.role === "colaborador" ? form.colaborador_type : undefined
-      );
+  const { data: clientsList = [] } = useQuery({
+    queryKey: ["clients-for-visibility"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("clients").select("id, name").eq("active", true).order("name");
       if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: visibilityConfigs = [] } = useQuery({
+    queryKey: ["client-visibility-configs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("client_visibility_config").select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const currentVisibility = visibilityConfigs.find((v: any) => v.client_id === visibilityClient);
+  const hiddenViews: string[] = currentVisibility?.hidden_views || [];
+
+  const upsertVisibility = useMutation({
+    mutationFn: async ({ clientId, hidden }: { clientId: string; hidden: string[] }) => {
+      if (currentVisibility) {
+        const { error } = await supabase.from("client_visibility_config").update({ hidden_views: hidden } as any).eq("id", currentVisibility.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("client_visibility_config").insert({ client_id: clientId, hidden_views: hidden } as any);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["profiles"] });
-      setShowAdd(false);
-      setForm({ name: "", email: "", password: "", role: "cliente", colaborador_type: "gestor" });
-      toast.success("Usuário criado com sucesso");
+      qc.invalidateQueries({ queryKey: ["client-visibility-configs"] });
+      toast.success("Visibilidade atualizada");
     },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const toggleView = (viewKey: string) => {
+    if (!visibilityClient) return;
+    const newHidden = hiddenViews.includes(viewKey)
+      ? hiddenViews.filter(v => v !== viewKey)
+      : [...hiddenViews, viewKey];
+    upsertVisibility.mutate({ clientId: visibilityClient, hidden: newHidden });
+  };
+
+  const createMut = useMutation({
+    mutationFn: async () => {
+      const { error } = await createUser(form.email, form.password, form.name, form.role, form.role === "colaborador" ? form.colaborador_type : undefined);
+      if (error) throw error;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["profiles"] }); setShowAdd(false); setForm({ name: "", email: "", password: "", role: "cliente", colaborador_type: "gestor" }); toast.success("Usuário criado com sucesso"); },
     onError: (e: any) => toast.error(e.message || "Erro ao criar usuário"),
   });
 
@@ -83,24 +135,17 @@ const Usuarios = () => {
 
   const deleteUserMut = useMutation({
     mutationFn: async (user: any) => {
-      // Archive client data, deactivate contracts, then delete profile
       const { data: clientData } = await supabase.from("clients").select("id").eq("user_id", user.user_id);
       if (clientData && clientData.length > 0) {
         const clientId = clientData[0].id;
         await supabase.from("clients").update({ active: false }).eq("id", clientId);
         await supabase.from("contracts").update({ status: "cancelado" as any }).eq("client_id", clientId);
       }
-      // Delete profile
       const { error } = await supabase.from("profiles").delete().eq("id", user.id);
       if (error) throw error;
-      // Delete user_roles
       await supabase.from("user_roles").delete().eq("user_id", user.user_id);
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["profiles"] });
-      setDeleteUserId(null);
-      toast.success("Usuário excluído");
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["profiles"] }); setDeleteUserId(null); toast.success("Usuário excluído"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -111,11 +156,7 @@ const Usuarios = () => {
       const { error } = await supabase.from("profiles").update(updateData).eq("id", u.id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["profiles"] });
-      setEditUser(null);
-      toast.success("Usuário atualizado");
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["profiles"] }); setEditUser(null); toast.success("Usuário atualizado"); },
     onError: (e: any) => toast.error(e.message),
   });
 
@@ -182,6 +223,38 @@ const Usuarios = () => {
         </table>
       </div>
 
+      {/* Visibility Config Section */}
+      <div className="metric-card">
+        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
+          <Settings className="h-4 w-4 text-primary" /> Configuração de Visões por Cliente
+        </h3>
+        <div className="space-y-4">
+          <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm w-full max-w-xs" value={visibilityClient || ""} onChange={e => setVisibilityClient(e.target.value || null)}>
+            <option value="">Selecione um cliente</option>
+            {clientsList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          {visibilityClient && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {ALL_VIEWS.map(view => {
+                const isHidden = hiddenViews.includes(view.key);
+                return (
+                  <div key={view.key} className={`flex items-center justify-between p-3 rounded-lg border ${isHidden ? "bg-destructive/5 border-destructive/20" : "bg-success/5 border-success/20"}`}>
+                    <div className="flex items-center gap-2">
+                      {isHidden ? <EyeOff className="h-4 w-4 text-destructive" /> : <Eye className="h-4 w-4 text-success" />}
+                      <span className="text-sm font-medium">{view.label}</span>
+                    </div>
+                    <Switch checked={!isHidden} onCheckedChange={() => toggleView(view.key)} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {!visibilityClient && <p className="text-sm text-muted-foreground">Selecione um cliente para configurar as visões disponíveis</p>}
+        </div>
+      </div>
+
       {/* Add user dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
         <div className="space-y-3">
@@ -206,32 +279,17 @@ const Usuarios = () => {
           <DialogHeader><DialogTitle>Editar Usuário</DialogTitle></DialogHeader>
           {editUser && (
             <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Nome completo</label>
-                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.full_name} onChange={e => setEditUser((p: any) => ({ ...p, full_name: e.target.value }))} />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
-                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.email} onChange={e => setEditUser((p: any) => ({ ...p, email: e.target.value }))} />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Data de Início do Contrato</label>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Nome completo</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.full_name} onChange={e => setEditUser((p: any) => ({ ...p, full_name: e.target.value }))} /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Email</label>
+                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.email} onChange={e => setEditUser((p: any) => ({ ...p, email: e.target.value }))} /></div>
+              <div><label className="text-xs font-medium text-muted-foreground mb-1 block">Data de Início do Contrato</label>
                 <input type="date" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={editUser.contract_start_date_input} onChange={e => setEditUser((p: any) => ({ ...p, contract_start_date_input: e.target.value }))} />
-                <p className="text-[10px] text-muted-foreground mt-1">Permite datas passadas para gestão retroativa</p>
-              </div>
+                <p className="text-[10px] text-muted-foreground mt-1">Permite datas passadas para gestão retroativa</p></div>
             </div>
           )}
           <DialogFooter>
-            <Button onClick={() => {
-              if (editUser && editUser.full_name && editUser.email) {
-                updateUser.mutate({
-                  id: editUser.id,
-                  full_name: editUser.full_name,
-                  email: editUser.email,
-                  contract_start_date: editUser.contract_start_date_input || null,
-                });
-              }
-            }} disabled={updateUser.isPending}>
+            <Button onClick={() => { if (editUser && editUser.full_name && editUser.email) updateUser.mutate({ id: editUser.id, full_name: editUser.full_name, email: editUser.email, contract_start_date: editUser.contract_start_date_input || null }); }} disabled={updateUser.isPending}>
               {updateUser.isPending ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
