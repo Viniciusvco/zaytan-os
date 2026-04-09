@@ -5,6 +5,9 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import zaytanLogo from "@/assets/zaytan-logo.png";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -97,9 +100,31 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { role, colaboradorType, whiteLabel, trainingComplete } = useRole();
+  const { user } = useAuth();
+
+  // Fetch visibility config for client role
+  const { data: visibilityConfig } = useQuery({
+    queryKey: ["my-visibility-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("client_visibility_config").select("hidden_views");
+      if (error) return null;
+      return data?.[0] || null;
+    },
+    enabled: role === "cliente",
+  });
+
+  const hiddenViews: string[] = (visibilityConfig as any)?.hidden_views || [];
+
+  const filterHidden = (items: { title: string; url: string; icon: any }[]) => {
+    if (role !== "cliente" || hiddenViews.length === 0) return items;
+    return items.filter(item => {
+      const viewKey = item.url.replace("/", "");
+      return !hiddenViews.includes(viewKey);
+    });
+  };
 
   const renderItems = (items: { title: string; url: string; icon: any }[]) =>
-    items.map((item) => (
+    filterHidden(items).map((item) => (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton asChild>
           <NavLink to={item.url} end={item.url === "/"} className="hover:bg-sidebar-accent/50" activeClassName="bg-sidebar-accent text-primary font-medium">
