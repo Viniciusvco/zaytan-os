@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { FileText, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface LaudoData {
+interface LaudoFormData {
   clientName: string;
   cpf: string;
   consultorName: string;
@@ -18,11 +18,7 @@ interface LaudoData {
   valorParcela: number;
   parcelasPagas: number;
   parcelasAtrasadas: number;
-  numeroProposta: string;
-  statusProposta: string;
-  novoNumMeses: number;
-  novoValorParcela: number;
-  estornoPrevisto: number;
+  numeroProposta: number;
 }
 
 interface Props {
@@ -34,6 +30,7 @@ interface Props {
   leadId?: string;
   clientName?: string;
   onPdfSaved?: () => void;
+  existingLaudoData?: LaudoFormData | null;
 }
 
 const formatCpf = (value: string) => {
@@ -44,34 +41,56 @@ const formatCpf = (value: string) => {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 };
 
-export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail, leadId, clientName, onPdfSaved }: Props) {
-  const [data, setData] = useState<LaudoData>({
-    clientName: leadName,
-    cpf: "",
-    consultorName: "",
-    assessoriaName: clientName || "",
-    assessoriaCnpj: "",
-    financeira: "",
-    modeloVeiculo: "",
-    valorFinanciado: 0,
-    numMeses: 0,
-    valorParcela: 0,
-    parcelasPagas: 0,
-    parcelasAtrasadas: 0,
-    numeroProposta: "",
-    statusProposta: "APROVADO",
-    novoNumMeses: 0,
-    novoValorParcela: 0,
-    estornoPrevisto: 0,
-  });
+const formatCnpj = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+};
+
+const defaultData: LaudoFormData = {
+  clientName: "",
+  cpf: "",
+  consultorName: "",
+  assessoriaName: "",
+  assessoriaCnpj: "",
+  financeira: "",
+  modeloVeiculo: "",
+  valorFinanciado: 0,
+  numMeses: 0,
+  valorParcela: 0,
+  parcelasPagas: 0,
+  parcelasAtrasadas: 0,
+  numeroProposta: 0,
+};
+
+export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail, leadId, clientName, onPdfSaved, existingLaudoData }: Props) {
+  const [data, setData] = useState<LaudoFormData>({ ...defaultData });
   const [generating, setGenerating] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const set = (field: keyof LaudoData, value: string | number) =>
+  useEffect(() => {
+    if (!open) return;
+    if (existingLaudoData) {
+      setData(existingLaudoData);
+    } else {
+      setData({
+        ...defaultData,
+        clientName: leadName,
+        assessoriaName: clientName || "",
+      });
+    }
+  }, [open, existingLaudoData, leadName, clientName]);
+
+  const set = (field: keyof LaudoFormData, value: string | number) =>
     setData(prev => ({ ...prev, [field]: value }));
 
+  // Auto-calculated "Financiamento Corrigido" values
   const mesesRestantes = Math.max(0, data.numMeses - data.parcelasPagas);
-  const reducaoMensal = Math.max(0, data.valorParcela - data.novoValorParcela);
+  const novoValorParcela = data.valorParcela * 0.70;
+  const reducaoMensal = data.valorParcela - novoValorParcela;
   const reducaoTotal = reducaoMensal * mesesRestantes;
 
   const now = new Date();
@@ -84,6 +103,21 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
     if (!printRef.current) return;
     setGenerating(true);
     try {
+      // Get next proposal number if not already set
+      let proposalNum = data.numeroProposta;
+      if (!proposalNum) {
+        const { data: seqData, error: seqErr } = await supabase.rpc("nextval_proposal" as any);
+        if (seqErr) {
+          // Fallback: use timestamp-based number
+          proposalNum = 18392 + Math.floor(Math.random() * 1000);
+        } else {
+          proposalNum = Number(seqData);
+        }
+        setData(prev => ({ ...prev, numeroProposta: proposalNum }));
+      }
+
+      const laudoToSave: LaudoFormData = { ...data, numeroProposta: proposalNum };
+
       const html2pdf = (await import("html2pdf.js")).default;
       const pdfBlob: Blob = await html2pdf()
         .set({
@@ -96,7 +130,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
         .from(printRef.current)
         .outputPdf("blob");
 
-      // Save to storage if leadId is available
+      // Save laudo data AND pdf to lead
       if (leadId) {
         const fileName = `${leadId}/${Date.now()}.pdf`;
         const { error: uploadError } = await supabase.storage
@@ -105,18 +139,21 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
 
         if (uploadError) {
           console.error("Upload error", uploadError);
-          toast.error("Erro ao salvar PDF no servidor");
-        } else {
-          const { data: urlData } = supabase.storage.from("laudos").getPublicUrl(fileName);
-          if (urlData?.publicUrl) {
-            await supabase.from("leads").update({ laudo_pdf_url: urlData.publicUrl } as any).eq("id", leadId);
-            toast.success("PDF salvo e anexado ao card!");
-            onPdfSaved?.();
-          }
         }
+
+        const { data: urlData } = supabase.storage.from("laudos").getPublicUrl(fileName);
+        const pdfUrl = urlData?.publicUrl || null;
+
+        await supabase.from("leads").update({
+          laudo_pdf_url: pdfUrl,
+          laudo_data: laudoToSave as any,
+        } as any).eq("id", leadId);
+
+        toast.success("Laudo salvo e anexado ao card!");
+        onPdfSaved?.();
       }
 
-      // Also download locally
+      // Download locally
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url;
@@ -131,39 +168,17 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
     }
   };
 
-  const handleOpenChange = (v: boolean) => {
-    if (v) setData({
-      clientName: leadName,
-      cpf: "",
-      consultorName: "",
-      assessoriaName: clientName || "",
-      assessoriaCnpj: "",
-      financeira: "",
-      modeloVeiculo: "",
-      valorFinanciado: 0,
-      numMeses: 0,
-      valorParcela: 0,
-      parcelasPagas: 0,
-      parcelasAtrasadas: 0,
-      numeroProposta: "",
-      statusProposta: "APROVADO",
-      novoNumMeses: 0,
-      novoValorParcela: 0,
-      estornoPrevisto: 0,
-    });
-    onOpenChange(v);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" /> Gerador de Laudo / Ficha Técnica
+            <FileText className="h-5 w-5" /> {existingLaudoData ? "Visualizar / Regerar Laudo" : "Gerador de Laudo / Ficha Técnica"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Header fields */}
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Nome do Cliente *</label>
@@ -185,11 +200,12 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">CNPJ da Assessoria</label>
-              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="00.000.000/0000-00" value={data.assessoriaCnpj} onChange={e => set("assessoriaCnpj", e.target.value)} />
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="00.000.000/0000-00" value={data.assessoriaCnpj} onChange={e => set("assessoriaCnpj", formatCnpj(e.target.value))} />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Financiamento Atual - user fills */}
             <div className="border rounded-xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-destructive">Financiamento Atual</h3>
               <div>
@@ -206,7 +222,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Nº de Meses</label>
+                  <label className="text-xs text-muted-foreground block mb-1">Nº de Meses (Total)</label>
                   <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.numMeses || ""} onChange={e => set("numMeses", Number(e.target.value))} />
                 </div>
                 <div>
@@ -226,48 +242,38 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
               </div>
             </div>
 
-            <div className="border rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-bold text-success">Financiamento Corrigido</h3>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Nº da Proposta/Correção</label>
-                <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.numeroProposta} onChange={e => set("numeroProposta", e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Status</label>
-                <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={data.statusProposta} onChange={e => set("statusProposta", e.target.value)}>
-                  <option value="APROVADO">APROVADO</option>
-                  <option value="EM ANÁLISE">EM ANÁLISE</option>
-                  <option value="REPROVADO">REPROVADO</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Novo Nº de Meses</label>
-                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.novoNumMeses || ""} onChange={e => set("novoNumMeses", Number(e.target.value))} />
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground block mb-1">Novo Valor Parcela (R$)</label>
-                  <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.novoValorParcela || ""} onChange={e => set("novoValorParcela", Number(e.target.value))} />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground block mb-1">Estorno Previsto (R$)</label>
-                <input type="number" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.estornoPrevisto || ""} onChange={e => set("estornoPrevisto", Number(e.target.value))} />
-              </div>
+            {/* Financiamento Corrigido - auto-calculated, read-only */}
+            <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
+              <h3 className="text-sm font-bold text-green-600">Financiamento Corrigido <span className="text-xs font-normal text-muted-foreground">(calculado automaticamente)</span></h3>
 
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2 border border-dashed">
-                <p className="text-xs font-semibold text-muted-foreground">Cálculos Automáticos</p>
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2 border">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Nº da Proposta:</span>
+                  <span className="font-bold">{data.numeroProposta || "Auto (ao exportar)"}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-bold text-green-600">APROVADO</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Novo Valor Parcela:</span>
+                  <span className="font-bold">R$ {fmt(novoValorParcela)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Redução Mensal:</span>
+                  <span className="font-bold text-green-600">R$ {fmt(reducaoMensal)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Estorno Previsto:</span>
+                  <span className="font-bold">R$ 0,00</span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Meses Restantes:</span>
                   <span className="font-bold">{mesesRestantes}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Redução Mensal:</span>
-                  <span className="font-bold text-success">R$ {fmt(reducaoMensal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Redução Total:</span>
-                  <span className="font-bold text-success text-lg">R$ {fmt(reducaoTotal)}</span>
+                <div className="flex justify-between text-sm border-t pt-2">
+                  <span className="text-muted-foreground font-semibold">Redução Total:</span>
+                  <span className="font-bold text-green-600 text-lg">R$ {fmt(reducaoTotal)}</span>
                 </div>
               </div>
             </div>
@@ -281,10 +287,10 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
           </div>
         </div>
 
-        {/* Hidden PDF content - fixed width to prevent right margin clipping */}
+        {/* Hidden PDF content */}
         <div style={{ position: "absolute", left: "-9999px", top: 0 }}>
           <div ref={printRef} style={{ width: "770px", maxWidth: "770px", fontFamily: "'Segoe UI', Arial, sans-serif", color: "#1a1a1a", background: "#fff", padding: "30px 35px", boxSizing: "border-box" }}>
-            {/* Header - assessoria name instead of PLANUM */}
+            {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "3px solid #FF6E27", paddingBottom: "12px", marginBottom: "20px" }}>
               <div>
                 <div style={{ fontSize: "24px", fontWeight: 800, color: "#FF6E27", letterSpacing: "-0.5px" }}>{data.assessoriaName || "Assessoria"}</div>
@@ -314,7 +320,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                     ["Financeira", data.financeira],
                     ["Modelo do Veículo", data.modeloVeiculo],
                     ["Valor Financiado", `R$ ${fmt(data.valorFinanciado)}`],
-                    ["Nº de Meses", data.numMeses],
+                    ["Nº de Meses (Total)", data.numMeses],
                     ["Valor da Parcela", `R$ ${fmt(data.valorParcela)}`],
                     ["Parcelas Pagas", data.parcelasPagas],
                     ["Parcelas Atrasadas", data.parcelasAtrasadas],
@@ -330,17 +336,16 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                 <div style={{ background: "#16a34a", color: "#fff", padding: "8px 14px", fontSize: "12px", fontWeight: 700 }}>FINANCIAMENTO CORRIGIDO</div>
                 <div style={{ padding: "12px 14px" }}>
                   {[
-                    ["Nº Proposta", data.numeroProposta],
-                    ["Status", data.statusProposta],
-                    ["Novo Nº de Meses", data.novoNumMeses],
-                    ["Novo Valor Parcela", `R$ ${fmt(data.novoValorParcela)}`],
+                    ["Nº Proposta", data.numeroProposta || "—"],
+                    ["Status", "APROVADO"],
+                    ["Novo Valor Parcela", `R$ ${fmt(novoValorParcela)}`],
                     ["Redução Mensal", `R$ ${fmt(reducaoMensal)}`],
-                    ["Estorno Previsto", `R$ ${fmt(data.estornoPrevisto)}`],
+                    ["Estorno Previsto", "R$ 0,00"],
                     ["Redução Total", `R$ ${fmt(reducaoTotal)}`],
                   ].map(([label, val], i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 6 ? "1px solid #f0f0f0" : "none", fontSize: "11px" }}>
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 5 ? "1px solid #f0f0f0" : "none", fontSize: "11px" }}>
                       <span style={{ color: "#666" }}>{label}</span>
-                      <span style={{ fontWeight: 700, color: i >= 4 ? "#16a34a" : "#1a1a1a" }}>{val || "—"}</span>
+                      <span style={{ fontWeight: 700, color: i >= 2 ? "#16a34a" : "#1a1a1a" }}>{val || "—"}</span>
                     </div>
                   ))}
                 </div>

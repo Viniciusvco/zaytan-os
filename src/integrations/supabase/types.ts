@@ -285,6 +285,7 @@ export type Database = {
           financing_type: string | null
           id: string
           installment_value: string | null
+          laudo_data: Json | null
           laudo_pdf_url: string | null
           lead_entry_date: string | null
           loss_reason: Database["public"]["Enums"]["loss_reason_type"] | null
@@ -304,6 +305,7 @@ export type Database = {
           financing_type?: string | null
           id?: string
           installment_value?: string | null
+          laudo_data?: Json | null
           laudo_pdf_url?: string | null
           lead_entry_date?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason_type"] | null
@@ -323,6 +325,7 @@ export type Database = {
           financing_type?: string | null
           id?: string
           installment_value?: string | null
+          laudo_data?: Json | null
           laudo_pdf_url?: string | null
           lead_entry_date?: string | null
           loss_reason?: Database["public"]["Enums"]["loss_reason_type"] | null
@@ -466,6 +469,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      nextval_proposal: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "colaborador" | "cliente"
