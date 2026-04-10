@@ -41,6 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) setProfile(data as Profile);
   };
 
+  // Reset demo data whenever demo user session is detected
+  const resetDemoData = async (email: string) => {
+    if (email === "modelo@zaytan.com") {
+      try {
+        await supabase.functions.invoke("seed-demo");
+      } catch (_) {
+        // silently ignore
+      }
+    }
+  };
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
@@ -48,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         if (session?.user) {
           setTimeout(() => fetchProfile(session.user.id), 0);
+          resetDemoData(session.user.email || "");
         } else {
           setProfile(null);
         }
@@ -60,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        resetDemoData(session.user.email || "");
       }
       setLoading(false);
     });
