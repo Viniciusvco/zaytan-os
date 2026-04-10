@@ -465,7 +465,7 @@ const CRM = () => {
                       <button onClick={e => { e.stopPropagation(); setEditValueTarget(lead); setEditValue(lead.value || 0); }} className="text-[9px] text-primary hover:underline">editar</button>
                     </div>
                   )}
-                  {lead.status !== "fechado" && lead.value > 0 && <p className="text-sm font-semibold">R$ {Number(lead.value).toLocaleString()}</p>}
+                  
                   {lead.seller_tag ? (
                     <span
                       className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary mt-1 inline-flex items-center gap-1 cursor-pointer hover:bg-primary/20"
