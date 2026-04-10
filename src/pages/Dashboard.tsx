@@ -166,8 +166,11 @@ const Dashboard = () => {
     );
   }
 
-  if (role === "cliente") return <ClientDashboard onboardingComplete={onboardingComplete} />;
-  if (role === "colaborador") {
+  // Use profile.role as source of truth to avoid race condition with RoleContext sync
+  const effectiveRole = profile.role === "cliente" ? "cliente" : role;
+
+  if (effectiveRole === "cliente") return <ClientDashboard onboardingComplete={onboardingComplete} />;
+  if (effectiveRole === "colaborador") {
     return (
       <ComingSoon>
         {colaboradorType === "gestor" ? <GestorDashboard /> :
