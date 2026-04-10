@@ -279,7 +279,13 @@ const CRM = () => {
   const getSourceTag = (source: string | null) => {
     if (!source) return null;
     if (source === "leads_laportec_star5") return { label: "Leads Zaytan", className: "bg-primary/10 text-primary" };
-    if (source.startsWith("import_")) return { label: `Leads ${source.replace("import_", "")}`, className: "bg-chart-3/10 text-chart-3" };
+    if (source.startsWith("import_")) {
+      const name = source.replace("import_", "");
+      // Different colors per fornecedor
+      if (/fornecedor\s*x/i.test(name)) return { label: `Leads ${name}`, className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" };
+      if (/fornecedor\s*y/i.test(name)) return { label: `Leads ${name}`, className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" };
+      return { label: `Leads ${name}`, className: "bg-chart-3/10 text-chart-3" };
+    }
     return null;
   };
 
