@@ -57,13 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let initialLoad = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
           setTimeout(() => fetchProfile(session.user.id), 0);
-          resetDemoData(session.user.email || "");
+          // Only reset demo on auth state change, not on initial load (handled by getSession)
+          if (!initialLoad) {
+            resetDemoData(session.user.email || "");
+          }
         } else {
           setProfile(null);
         }
@@ -79,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetDemoData(session.user.email || "");
       }
       setLoading(false);
+      initialLoad = false;
     });
 
     return () => subscription.unsubscribe();
