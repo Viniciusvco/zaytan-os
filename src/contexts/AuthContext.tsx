@@ -41,13 +41,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data) setProfile(data as Profile);
   };
 
-  // Reset demo data whenever demo user session is detected
+  // Reset demo data whenever demo user session is detected (with dedup guard)
+  const demoResetInFlight = { current: false };
   const resetDemoData = async (email: string) => {
-    if (email === "modelo@zaytan.com") {
+    if (email === "modelo@zaytan.com" && !demoResetInFlight.current) {
+      demoResetInFlight.current = true;
       try {
         await supabase.functions.invoke("seed-demo");
       } catch (_) {
         // silently ignore
+      } finally {
+        demoResetInFlight.current = false;
       }
     }
   };
