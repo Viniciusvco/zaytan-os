@@ -227,23 +227,35 @@ const Contratos = () => {
     return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
   }, [monitorPeriod]);
 
-  const { data: monitoringData, isLoading: monitorLoading } = useQuery({
-    queryKey: ["distribution-monitoring", monitorDateRange, clients],
-    queryFn: async () => {
-      const clientIds = distributionPreview.map(d => d.client_id);
-      if (clientIds.length === 0) return { clients: [], lastUpdate: null };
+  const monitorClientIds = useMemo(() => distributionPreview.map(d => d.client_id), [distributionPreview]);
 
-      const { data: leads } = await supabase
-        .from("leads")
-        .select("client_id, created_at")
-        .in("client_id", clientIds)
-        .eq("source", "leads_laportec_star5")
-        .gte("created_at", monitorDateRange.from)
-        .lte("created_at", monitorDateRange.to);
+  const { data: monitoringData, isLoading: monitorLoading } = useQuery({
+    queryKey: ["distribution-monitoring", monitorDateRange, monitorClientIds],
+    queryFn: async () => {
+      if (monitorClientIds.length === 0) return { clients: [], lastUpdate: null, total: 0 };
+
+      // Query ALL leads for these clients with source filter, paginate if needed
+      let allLeads: Array<{ client_id: string; created_at: string }> = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data: batch } = await supabase
+          .from("leads")
+          .select("client_id, created_at")
+          .in("client_id", monitorClientIds)
+          .eq("source", "leads_laportec_star5")
+          .gte("created_at", monitorDateRange.from)
+          .lte("created_at", monitorDateRange.to)
+          .range(from, from + pageSize - 1);
+        if (!batch || batch.length === 0) break;
+        allLeads = allLeads.concat(batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
 
       const countByClient: Record<string, number> = {};
       let lastUpdate: string | null = null;
-      for (const l of leads || []) {
+      for (const l of allLeads) {
         countByClient[l.client_id] = (countByClient[l.client_id] || 0) + 1;
         if (!lastUpdate || l.created_at > lastUpdate) lastUpdate = l.created_at;
       }
@@ -256,10 +268,10 @@ const Contratos = () => {
           dailyLimit: d.dailyLimit,
         })),
         lastUpdate,
-        total: (leads || []).length,
+        total: allLeads.length,
       };
     },
-    enabled: distributionPreview.length > 0,
+    enabled: monitorClientIds.length > 0,
     refetchInterval: 30000,
   });
 
