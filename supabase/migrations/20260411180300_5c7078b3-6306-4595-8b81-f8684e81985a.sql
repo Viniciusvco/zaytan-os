@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN csv_import_enabled boolean NOT NULL DEFAULT false;
