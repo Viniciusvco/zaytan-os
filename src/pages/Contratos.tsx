@@ -399,8 +399,8 @@ const Contratos = () => {
           </div>
         </TabsContent>
 
-        {/* === TAB: Distribuição (original) === */}
-        <TabsContent value="distribuicao" className="mt-4">
+        {/* === TAB: Distribuição (original + daily limit + monitoring) === */}
+        <TabsContent value="distribuicao" className="mt-4 space-y-6">
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -409,10 +409,13 @@ const Contratos = () => {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold">Distribuição de Leads</h3>
-                  <p className="text-xs text-muted-foreground">Proporcional ao investimento ou ajuste manual do %</p>
+                  <p className="text-xs text-muted-foreground">Proporcional ao investimento ou ajuste manual do % / limite diário</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
+                <Button onClick={handleResetDistribution} variant="ghost" size="sm" className="text-xs gap-1.5">
+                  <RotateCcw className="h-3.5 w-3.5" /> Reconfigurar pelo Investimento
+                </Button>
                 <select className="h-8 px-2 rounded-lg bg-muted border-0 text-xs" value={importClientFilter} onChange={e => setImportClientFilter(e.target.value)}>
                   <option value="all">Todos os clientes</option>
                   {distributionPreview.map(d => (
@@ -438,15 +441,16 @@ const Contratos = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="grid grid-cols-5 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
+                <div className="grid grid-cols-6 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
                   <span>Cliente</span>
                   <span className="text-right">Investimento Semanal</span>
                   <span className="text-right">% dos Leads</span>
+                  <span className="text-right">Limite Diário</span>
                   <span>Distribuição</span>
                   <span className="text-right">Ação</span>
                 </div>
                 {distributionPreview.map((d) => (
-                  <div key={d.client_id} className="grid grid-cols-5 gap-2 items-center">
+                  <div key={d.client_id} className="grid grid-cols-6 gap-2 items-center">
                     <span className="text-sm font-medium truncate">{d.name}</span>
                     <span className="text-sm text-right">R$ {d.investment.toLocaleString()}</span>
                     <div className="flex items-center justify-end gap-1">
@@ -466,10 +470,27 @@ const Contratos = () => {
                       />
                       <span className="text-xs">%</span>
                     </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        className={`w-16 h-7 px-2 rounded bg-muted border-0 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 ${d.isDailyLimitManual ? "ring-1 ring-primary/50" : ""}`}
+                        value={d.dailyLimit ?? ""}
+                        placeholder="∞"
+                        onChange={e => {
+                          const val = e.target.value === "" ? null : parseInt(e.target.value);
+                          setDailyLimitOverrides(prev => ({ ...prev, [d.client_id]: val }));
+                        }}
+                      />
+                      <span className="text-[10px] text-muted-foreground">/dia</span>
+                    </div>
                     <Progress value={d.percentage} className="h-2" />
                     <div className="text-right">
-                      {d.isOverridden && (
-                        <button className="text-[10px] text-primary hover:underline" onClick={() => setPercentOverrides(prev => { const n = { ...prev }; delete n[d.client_id]; return n; })}>
+                      {(d.isOverridden || d.isDailyLimitManual) && (
+                        <button className="text-[10px] text-primary hover:underline" onClick={() => {
+                          setPercentOverrides(prev => { const n = { ...prev }; delete n[d.client_id]; return n; });
+                          setDailyLimitOverrides(prev => { const n = { ...prev }; delete n[d.client_id]; return n; });
+                        }}>
                           Resetar
                         </button>
                       )}
@@ -505,6 +526,76 @@ const Contratos = () => {
                     </span>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Monitoring Section */}
+          <div className="bg-card border border-border rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-info/10 flex items-center justify-center">
+                  <Eye className="h-5 w-5 text-info" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Monitoramento de Distribuição</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Leads distribuídos por cliente
+                    {monitoringData?.lastUpdate && (
+                      <> · Última atualização: <span className="font-medium">{new Date(monitoringData.lastUpdate).toLocaleString("pt-BR")}</span></>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <select
+                className="h-8 px-3 rounded-lg bg-muted border-0 text-xs"
+                value={monitorPeriod}
+                onChange={e => setMonitorPeriod(e.target.value)}
+              >
+                <option value="today">Hoje</option>
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+              </select>
+            </div>
+
+            {monitorLoading ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">Carregando...</div>
+            ) : !monitoringData?.clients?.length ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">Nenhum dado de distribuição no período selecionado.</div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
+                  <span>Cliente</span>
+                  <span className="text-right">Leads Distribuídos</span>
+                  <span className="text-right">Limite Diário</span>
+                  <span>Progresso</span>
+                </div>
+                {monitoringData.clients.map((c: any) => {
+                  const limitPct = c.dailyLimit ? Math.min((c.count / c.dailyLimit) * 100, 100) : 0;
+                  return (
+                    <div key={c.client_id} className="grid grid-cols-4 gap-2 items-center">
+                      <span className="text-sm font-medium truncate">{c.name}</span>
+                      <span className="text-sm text-right font-semibold">{c.count}</span>
+                      <span className="text-sm text-right text-muted-foreground">{c.dailyLimit ?? "∞"}</span>
+                      <div>
+                        {c.dailyLimit ? (
+                          <div className="flex items-center gap-2">
+                            <Progress value={limitPct} className="h-2 flex-1" />
+                            <span className={`text-[10px] font-medium ${limitPct >= 100 ? "text-destructive" : limitPct >= 80 ? "text-warning" : "text-success"}`}>
+                              {limitPct.toFixed(0)}%
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-muted-foreground">Sem limite</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <span className="text-xs font-semibold text-muted-foreground">Total de leads no período</span>
+                  <span className="text-sm font-bold">{monitoringData.total}</span>
+                </div>
               </div>
             )}
           </div>
