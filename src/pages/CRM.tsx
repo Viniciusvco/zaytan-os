@@ -39,8 +39,21 @@ const CRM = () => {
   // Filters - default to current month
   const [clientFilter, setClientFilter] = useState("all");
   const [sellerFilter, setSellerFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [datePreset, setDatePreset] = useState("month");
   const now = new Date();
+  const getDateRange = (preset: string) => {
+    const today = new Date();
+    switch (preset) {
+      case "7d": { const d = new Date(today); d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "30d": { const d = new Date(today); d.setDate(d.getDate() - 30); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "90d": { const d = new Date(today); d.setDate(d.getDate() - 90); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "month": return { from: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`, to: today.toISOString().split("T")[0] };
+      case "custom": return { from: dateFrom, to: dateTo };
+      default: return { from: "", to: "" };
+    }
+  };
   const [dateFrom, setDateFrom] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
   const [dateTo, setDateTo] = useState(now.toISOString().split("T")[0]);
 
