@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_clients: {
+        Row: {
+          accumulated_balance: number
+          campaign_id: string
+          client_id: string
+          created_at: string
+          daily_limit: number | null
+          id: string
+          investment_amount: number
+          last_reset_date: string | null
+          leads_received_today: number
+          paused: boolean
+          updated_at: string
+          weight_override: boolean
+          weight_percent: number
+        }
+        Insert: {
+          accumulated_balance?: number
+          campaign_id: string
+          client_id: string
+          created_at?: string
+          daily_limit?: number | null
+          id?: string
+          investment_amount?: number
+          last_reset_date?: string | null
+          leads_received_today?: number
+          paused?: boolean
+          updated_at?: string
+          weight_override?: boolean
+          weight_percent?: number
+        }
+        Update: {
+          accumulated_balance?: number
+          campaign_id?: string
+          client_id?: string
+          created_at?: string
+          daily_limit?: number | null
+          id?: string
+          investment_amount?: number
+          last_reset_date?: string | null
+          leads_received_today?: number
+          paused?: boolean
+          updated_at?: string
+          weight_override?: boolean
+          weight_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_clients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_clients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          min_lead_goal: number | null
+          name: string
+          stock_expiry_days: number
+          total_investment: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          min_lead_goal?: number | null
+          name: string
+          stock_expiry_days?: number
+          total_investment?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          min_lead_goal?: number | null
+          name?: string
+          stock_expiry_days?: number
+          total_investment?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_user_roles: {
         Row: {
           client_id: string
@@ -254,6 +350,70 @@ export type Database = {
           },
         ]
       }
+      distribution_logs: {
+        Row: {
+          accumulated_balance_at: number
+          campaign_id: string
+          client_id: string
+          created_at: string
+          id: string
+          lead_queue_id: string
+          performed_by: string | null
+          rule_applied: Database["public"]["Enums"]["distribution_rule"]
+          status_after: Database["public"]["Enums"]["lead_queue_status"]
+          status_before: Database["public"]["Enums"]["lead_queue_status"]
+          weight_at_distribution: number
+        }
+        Insert: {
+          accumulated_balance_at?: number
+          campaign_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          lead_queue_id: string
+          performed_by?: string | null
+          rule_applied: Database["public"]["Enums"]["distribution_rule"]
+          status_after: Database["public"]["Enums"]["lead_queue_status"]
+          status_before: Database["public"]["Enums"]["lead_queue_status"]
+          weight_at_distribution?: number
+        }
+        Update: {
+          accumulated_balance_at?: number
+          campaign_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          lead_queue_id?: string
+          performed_by?: string | null
+          rule_applied?: Database["public"]["Enums"]["distribution_rule"]
+          status_after?: Database["public"]["Enums"]["lead_queue_status"]
+          status_before?: Database["public"]["Enums"]["lead_queue_status"]
+          weight_at_distribution?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_logs_lead_queue_id_fkey"
+            columns: ["lead_queue_id"]
+            isOneToOne: false
+            referencedRelation: "lead_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_records: {
         Row: {
           amount: number
@@ -407,6 +567,88 @@ export type Database = {
             foreignKeyName: "lead_distribution_config_client_id_fkey"
             columns: ["client_id"]
             isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_queue: {
+        Row: {
+          assigned_client_id: string | null
+          campaign_id: string
+          created_at: string
+          distributed_at: string | null
+          distribution_rule:
+            | Database["public"]["Enums"]["distribution_rule"]
+            | null
+          email: string | null
+          expires_at: string | null
+          id: string
+          name: string
+          phone: string | null
+          raw_data: Json | null
+          source: string | null
+          status: Database["public"]["Enums"]["lead_queue_status"]
+          stock_client_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_client_id?: string | null
+          campaign_id: string
+          created_at?: string
+          distributed_at?: string | null
+          distribution_rule?:
+            | Database["public"]["Enums"]["distribution_rule"]
+            | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          raw_data?: Json | null
+          source?: string | null
+          status?: Database["public"]["Enums"]["lead_queue_status"]
+          stock_client_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_client_id?: string | null
+          campaign_id?: string
+          created_at?: string
+          distributed_at?: string | null
+          distribution_rule?:
+            | Database["public"]["Enums"]["distribution_rule"]
+            | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          raw_data?: Json | null
+          source?: string | null
+          status?: Database["public"]["Enums"]["lead_queue_status"]
+          stock_client_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_queue_assigned_client_id_fkey"
+            columns: ["assigned_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_queue_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_queue_stock_client_id_fkey"
+            columns: ["stock_client_id"]
+            isOneToOne: false
             referencedRelation: "clients"
             referencedColumns: ["id"]
           },
@@ -668,12 +910,24 @@ export type Database = {
       demand_priority: "baixa" | "media" | "alta" | "critica"
       demand_specialty: "trafego" | "design" | "cs"
       demand_status: "backlog" | "em_progresso" | "revisao" | "concluido"
+      distribution_rule:
+        | "proporcional"
+        | "estoque"
+        | "redistribuicao"
+        | "manual"
       financial_type: "receita" | "despesa"
       juridico_status:
         | "analise_documentacao"
         | "protocolo_administrativo"
         | "ajuizado"
         | "concluido"
+      lead_queue_status:
+        | "pendente"
+        | "em_processamento"
+        | "distribuido"
+        | "duplicado"
+        | "expirado"
+        | "estoque"
       lead_status:
         | "novo"
         | "contatado"
@@ -823,12 +1077,26 @@ export const Constants = {
       demand_priority: ["baixa", "media", "alta", "critica"],
       demand_specialty: ["trafego", "design", "cs"],
       demand_status: ["backlog", "em_progresso", "revisao", "concluido"],
+      distribution_rule: [
+        "proporcional",
+        "estoque",
+        "redistribuicao",
+        "manual",
+      ],
       financial_type: ["receita", "despesa"],
       juridico_status: [
         "analise_documentacao",
         "protocolo_administrativo",
         "ajuizado",
         "concluido",
+      ],
+      lead_queue_status: [
+        "pendente",
+        "em_processamento",
+        "distribuido",
+        "duplicado",
+        "expirado",
+        "estoque",
       ],
       lead_status: [
         "novo",
