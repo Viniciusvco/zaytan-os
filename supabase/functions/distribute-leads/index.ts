@@ -284,7 +284,7 @@ Deno.serve(async (req) => {
       client_id: cid,
       client_name: clientInvestments[cid].name,
       investment: clientInvestments[cid].investment,
-      percentage: Math.round(clientPercentages[cid] * 100) / 100,
+      percentage: Math.round((distributionPlan.percentages[cid] || 0) * 100) / 100,
       leads_assigned: insertedCount[cid] || 0,
       leads_existing: skippedCount[cid] || 0,
       leads_updated: importMode === "all" ? (skippedCount[cid] || 0) : 0,
