@@ -234,18 +234,18 @@ const Contratos = () => {
     queryFn: async () => {
       if (monitorClientIds.length === 0) return { clients: [], lastUpdate: null, total: 0 };
 
-      // Query ALL leads for these clients with source filter, paginate if needed
-      let allLeads: Array<{ client_id: string; created_at: string }> = [];
+      // Use lead_entry_date (actual lead arrival date), not created_at (import date)
+      let allLeads: Array<{ client_id: string; lead_entry_date: string | null; created_at: string }> = [];
       let from = 0;
       const pageSize = 1000;
       while (true) {
         const { data: batch } = await supabase
           .from("leads")
-          .select("client_id, created_at")
+          .select("client_id, lead_entry_date, created_at")
           .in("client_id", monitorClientIds)
           .eq("source", "leads_laportec_star5")
-          .gte("created_at", monitorDateRange.from)
-          .lte("created_at", monitorDateRange.to)
+          .gte("lead_entry_date", monitorDateRange.from)
+          .lte("lead_entry_date", monitorDateRange.to)
           .range(from, from + pageSize - 1);
         if (!batch || batch.length === 0) break;
         allLeads = allLeads.concat(batch);
@@ -257,7 +257,8 @@ const Contratos = () => {
       let lastUpdate: string | null = null;
       for (const l of allLeads) {
         countByClient[l.client_id] = (countByClient[l.client_id] || 0) + 1;
-        if (!lastUpdate || l.created_at > lastUpdate) lastUpdate = l.created_at;
+        const ts = l.lead_entry_date || l.created_at;
+        if (!lastUpdate || ts > lastUpdate) lastUpdate = ts;
       }
 
       return {
