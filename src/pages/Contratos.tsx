@@ -436,6 +436,38 @@ const Contratos = () => {
               </div>
             </div>
 
+            {/* Cost per lead config */}
+            <div className="flex items-center gap-4 mb-4 p-3 rounded-lg bg-muted/50 border border-border">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Custo/Lead Real:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">R$</span>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.5}
+                    className="w-20 h-7 px-2 rounded bg-background border border-border text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={costPerLeadReal}
+                    onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setCostPerLeadReal(v); }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Custo/Lead Venda:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">R$</span>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.5}
+                    className="w-20 h-7 px-2 rounded bg-background border border-border text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={costPerLeadSale}
+                    onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setCostPerLeadSale(v); }}
+                  />
+                </div>
+              </div>
+              <span className="text-[10px] text-muted-foreground">Limite diário = Invest. Semanal ÷ Custo/Lead Venda ÷ 7</span>
+            </div>
             {distributionPreview.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 Nenhum contrato ativo com investimento semanal configurado.
