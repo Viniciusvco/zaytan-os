@@ -186,6 +186,8 @@ const Contratos = () => {
 
   const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
   const [dailyLimitOverrides, setDailyLimitOverrides] = useState<Record<string, number | null>>({});
+  const [costPerLeadReal, setCostPerLeadReal] = useState(10);
+  const [costPerLeadSale, setCostPerLeadSale] = useState(20);
   const [importMode, setImportMode] = useState<"new_only" | "all">("new_only");
   const [importClientFilter, setImportClientFilter] = useState<string>("all");
   const [monitorPeriod, setMonitorPeriod] = useState<string>("today");
@@ -195,15 +197,16 @@ const Contratos = () => {
     .map(([cid, v]) => {
       const autoPercent = totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0;
       const pct = percentOverrides[cid] !== undefined ? percentOverrides[cid] : autoPercent;
-      // Pre-calculate daily limit suggestion: assume ~100 leads/day total pool, distribute by %
-      const suggestedDailyLimit = Math.max(1, Math.round(pct));
+      // Daily limit = weekly investment / cost per sale lead / 7 days
+      const calculatedDailyLimit = costPerLeadSale > 0 ? Math.max(1, Math.round(v.investment / costPerLeadSale / 7)) : 1;
       return {
         client_id: cid,
         name: v.name,
         investment: v.investment,
         percentage: pct,
         isOverridden: percentOverrides[cid] !== undefined,
-        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : suggestedDailyLimit,
+        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : calculatedDailyLimit,
+        calculatedDailyLimit,
         isDailyLimitManual: dailyLimitOverrides[cid] !== undefined,
       };
     });
