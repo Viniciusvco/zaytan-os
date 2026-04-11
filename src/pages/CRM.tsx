@@ -47,6 +47,7 @@ const CRM = () => {
     const today = new Date();
     switch (preset) {
       case "7d": { const d = new Date(today); d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "today": return { from: today.toISOString().split("T")[0], to: today.toISOString().split("T")[0] };
       case "30d": { const d = new Date(today); d.setDate(d.getDate() - 30); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
       case "90d": { const d = new Date(today); d.setDate(d.getDate() - 90); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
       case "month": return { from: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`, to: today.toISOString().split("T")[0] };
@@ -433,6 +434,7 @@ const CRM = () => {
         </select>
         <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={datePreset} onChange={e => { setDatePreset(e.target.value); }}>
           <option value="all">Todas as datas</option>
+          <option value="today">Hoje</option>
           <option value="7d">Últimos 7 dias</option>
           <option value="30d">Últimos 30 dias</option>
           <option value="90d">Últimos 90 dias</option>

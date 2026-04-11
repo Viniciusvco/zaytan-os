@@ -16,7 +16,6 @@ import Comercial from "./pages/Comercial";
 import Performance from "./pages/Performance";
 import Demandas from "./pages/Demandas";
 import CRM from "./pages/CRM";
-import CRMJuridico from "./pages/CRMJuridico";
 import VisaoContratos from "./pages/VisaoContratos";
 import Onboarding from "./pages/Onboarding";
 import Equipe from "./pages/Equipe";
@@ -58,7 +57,6 @@ function ProtectedRoutes() {
           <Route path="/performance" element={<Performance />} />
           <Route path="/demandas" element={<Demandas />} />
           <Route path="/crm" element={<CRM />} />
-          <Route path="/crm-juridico" element={<CRMJuridico />} />
           <Route path="/visao-contratos" element={<VisaoContratos />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/equipe" element={<Equipe />} />

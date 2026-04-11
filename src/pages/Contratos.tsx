@@ -17,6 +17,8 @@ import { LeadQueue } from "@/components/motor/LeadQueue";
 import { StockManager } from "@/components/motor/StockManager";
 import { AuditLog } from "@/components/motor/AuditLog";
 
+const SYSTEM_DISTRIBUTION_CAMPAIGN_NAME = "__crm_distribution__";
+
 type ContractStatus = "rascunho" | "ativo" | "cancelado" | "aguardando";
 
 type ContractFormData = {
@@ -121,6 +123,28 @@ const Contratos = () => {
     },
   });
 
+  const { data: distributionConfig, refetch: refetchDistributionConfig } = useQuery({
+    queryKey: ["distribution-config"],
+    queryFn: async () => {
+      const { data: campaign, error: campaignError } = await supabase
+        .from("campaigns")
+        .select("id")
+        .eq("name", SYSTEM_DISTRIBUTION_CAMPAIGN_NAME)
+        .maybeSingle();
+
+      if (campaignError) throw campaignError;
+      if (!campaign) return { campaignId: null, rows: [] as any[] };
+
+      const { data: rows, error: rowsError } = await supabase
+        .from("campaign_clients")
+        .select("id, client_id, investment_amount, weight_percent, weight_override, daily_limit")
+        .eq("campaign_id", campaign.id);
+
+      if (rowsError) throw rowsError;
+      return { campaignId: campaign.id, rows: rows || [] };
+    },
+  });
+
   const createMut = useMutation({
     mutationFn: async (p: ContractFormData) => {
       const payload: any = {
@@ -183,6 +207,10 @@ const Contratos = () => {
     investmentByClient[cid].investment += Number(c.weekly_investment || 0);
   });
   const totalWeeklyInvestment = Object.values(investmentByClient).reduce((s, c) => s + c.investment, 0);
+  const storedDistributionByClient = useMemo(
+    () => new Map((distributionConfig?.rows || []).map((row: any) => [row.client_id, row])),
+    [distributionConfig],
+  );
 
   const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
   const [dailyLimitOverrides, setDailyLimitOverrides] = useState<Record<string, number | null>>({});
@@ -196,7 +224,12 @@ const Contratos = () => {
     .filter(([_, v]) => v.investment > 0)
     .map(([cid, v]) => {
       const autoPercent = totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0;
-      const pct = percentOverrides[cid] !== undefined ? percentOverrides[cid] : autoPercent;
+      const storedConfig = storedDistributionByClient.get(cid);
+      const pct = percentOverrides[cid] !== undefined
+        ? percentOverrides[cid]
+        : storedConfig?.weight_override
+          ? Number(storedConfig.weight_percent)
+          : autoPercent;
       // Daily limit = weekly investment / cost per sale lead / 7 days
       const calculatedDailyLimit = costPerLeadSale > 0 ? Math.max(1, Math.round(v.investment / costPerLeadSale / 7)) : 1;
       return {
@@ -204,12 +237,66 @@ const Contratos = () => {
         name: v.name,
         investment: v.investment,
         percentage: pct,
-        isOverridden: percentOverrides[cid] !== undefined,
-        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : calculatedDailyLimit,
+        isOverridden: percentOverrides[cid] !== undefined || !!storedConfig?.weight_override,
+        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : storedConfig?.daily_limit ?? calculatedDailyLimit,
         calculatedDailyLimit,
-        isDailyLimitManual: dailyLimitOverrides[cid] !== undefined,
+        isDailyLimitManual: dailyLimitOverrides[cid] !== undefined || storedConfig?.daily_limit !== null,
       };
     });
+
+  const ensureDistributionCampaign = async () => {
+    if (distributionConfig?.campaignId) return distributionConfig.campaignId;
+
+    const { data: existingCampaign, error: existingError } = await supabase
+      .from("campaigns")
+      .select("id")
+      .eq("name", SYSTEM_DISTRIBUTION_CAMPAIGN_NAME)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+    if (existingCampaign) return existingCampaign.id;
+
+    const { data: createdCampaign, error: createError } = await supabase
+      .from("campaigns")
+      .insert({
+        name: SYSTEM_DISTRIBUTION_CAMPAIGN_NAME,
+        total_investment: totalWeeklyInvestment,
+        stock_expiry_days: 7,
+        active: false,
+      })
+      .select("id")
+      .single();
+
+    if (createError) throw createError;
+    return createdCampaign.id;
+  };
+
+  const saveDistributionRule = async (clientId: string, changes: { weight_percent?: number; weight_override?: boolean; daily_limit?: number | null }) => {
+    const campaignId = await ensureDistributionCampaign();
+    const storedConfig = storedDistributionByClient.get(clientId);
+    const investment = investmentByClient[clientId]?.investment || 0;
+    const autoPercent = totalWeeklyInvestment > 0 ? (investment / totalWeeklyInvestment) * 100 : 0;
+    const payload = {
+      investment_amount: investment,
+      weight_percent: changes.weight_percent ?? Number(storedConfig?.weight_percent ?? autoPercent),
+      weight_override: changes.weight_override ?? storedConfig?.weight_override ?? false,
+      daily_limit: changes.daily_limit !== undefined ? changes.daily_limit : storedConfig?.daily_limit ?? null,
+    };
+
+    if (storedConfig?.id) {
+      const { error } = await supabase.from("campaign_clients").update(payload).eq("id", storedConfig.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("campaign_clients").insert({
+        campaign_id: campaignId,
+        client_id: clientId,
+        ...payload,
+      });
+      if (error) throw error;
+    }
+
+    await refetchDistributionConfig();
+  };
 
   // Monitoring: leads distributed per client
   const monitorDateRange = useMemo(() => {
@@ -279,7 +366,20 @@ const Contratos = () => {
   const handleResetDistribution = () => {
     setPercentOverrides({});
     setDailyLimitOverrides({});
-    toast.success("Distribuição reconfigurada com base no investimento semanal");
+    const resetAll = async () => {
+      const rowIds = (distributionConfig?.rows || []).map((row: any) => row.id);
+      if (rowIds.length > 0) {
+        const { error } = await supabase
+          .from("campaign_clients")
+          .update({ weight_override: false, daily_limit: null })
+          .in("id", rowIds);
+        if (error) throw error;
+        await refetchDistributionConfig();
+      }
+      toast.success("Distribuição reconfigurada com base no investimento semanal");
+    };
+
+    void resetAll().catch((e: any) => toast.error(e.message || "Erro ao reconfigurar distribuição"));
   };
 
   const [syncing, setSyncing] = useState(false);
@@ -315,12 +415,11 @@ const Contratos = () => {
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight">Motor Revisional</h1><p className="text-sm text-muted-foreground mt-1">Lifecycle completo</p></div>
+        <div><h1 className="text-2xl font-bold tracking-tight">Distribuição</h1><p className="text-sm text-muted-foreground mt-1">Contratos e regras de distribuição em uma única visão</p></div>
       </div>
 
-      <Tabs defaultValue="contratos">
+      <Tabs defaultValue="distribuicao">
         <TabsList>
-          <TabsTrigger value="contratos" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Contratos</TabsTrigger>
           <TabsTrigger value="distribuicao" className="gap-1.5"><PieChart className="h-3.5 w-3.5" /> Distribuição</TabsTrigger>
           <TabsTrigger value="campanhas" className="gap-1.5"><Megaphone className="h-3.5 w-3.5" /> Campanhas</TabsTrigger>
           <TabsTrigger value="fila" className="gap-1.5"><ListOrdered className="h-3.5 w-3.5" /> Fila de Leads</TabsTrigger>
@@ -328,8 +427,8 @@ const Contratos = () => {
           <TabsTrigger value="auditoria" className="gap-1.5"><ScrollText className="h-3.5 w-3.5" /> Auditoria</TabsTrigger>
         </TabsList>
 
-        {/* === TAB: Contratos (original) === */}
-        <TabsContent value="contratos" className="space-y-6 mt-4">
+        {/* === TAB: Distribuição (contratos + regras) === */}
+        <TabsContent value="distribuicao" className="space-y-6 mt-4">
           <div className="flex items-center justify-between">
             <DateRangeFilter value={dateRange} onChange={setDateRange} />
             <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Contrato</Button>
@@ -415,7 +514,6 @@ const Contratos = () => {
           </div>
         </TabsContent>
 
-        {/* === TAB: Distribuição (original + daily limit + monitoring) === */}
         <TabsContent value="distribuicao" className="mt-4 space-y-6">
           <div className="bg-card border border-border rounded-xl p-6">
             <div className="flex items-center justify-between mb-4">
@@ -513,6 +611,7 @@ const Contratos = () => {
                           const val = parseFloat(e.target.value);
                           if (!isNaN(val)) {
                             setPercentOverrides(prev => ({ ...prev, [d.client_id]: val }));
+                            void saveDistributionRule(d.client_id, { weight_percent: val, weight_override: true }).catch((err: any) => toast.error(err.message || "Erro ao salvar percentual"));
                           }
                         }}
                       />
@@ -528,6 +627,7 @@ const Contratos = () => {
                         onChange={e => {
                           const val = e.target.value === "" ? null : parseInt(e.target.value);
                           setDailyLimitOverrides(prev => ({ ...prev, [d.client_id]: val }));
+                          void saveDistributionRule(d.client_id, { daily_limit: val }).catch((err: any) => toast.error(err.message || "Erro ao salvar limite diário"));
                         }}
                       />
                       <span className="text-[10px] text-muted-foreground">/dia</span>
@@ -538,6 +638,7 @@ const Contratos = () => {
                         <button className="text-[10px] text-primary hover:underline" onClick={() => {
                           setPercentOverrides(prev => { const n = { ...prev }; delete n[d.client_id]; return n; });
                           setDailyLimitOverrides(prev => { const n = { ...prev }; delete n[d.client_id]; return n; });
+                          void saveDistributionRule(d.client_id, { weight_percent: d.calculatedDailyLimit ? (d.investment / totalWeeklyInvestment) * 100 : 0, weight_override: false, daily_limit: null }).catch((err: any) => toast.error(err.message || "Erro ao resetar regra"));
                         }}>
                           Resetar
                         </button>

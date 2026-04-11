@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Users, DollarSign, Package, Target, HeadphonesIcon,
   FileText, BarChart3, Kanban, UserCog, Briefcase, Rocket, GraduationCap, MessageSquare,
-  Settings, Bot, Scale, CreditCard,
+  Settings, Bot, CreditCard,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
@@ -24,7 +24,6 @@ const adminItems = {
   operacao: [
     { title: "Demandas", url: "/demandas", icon: Kanban },
     { title: "CRM", url: "/crm", icon: Target },
-    { title: "CRM Jurídico", url: "/crm-juridico", icon: Scale },
     { title: "Comercial", url: "/comercial", icon: Briefcase },
     { title: "Performance", url: "/performance", icon: BarChart3 },
     { title: "Contratos & Pagamentos", url: "/visao-contratos", icon: CreditCard },

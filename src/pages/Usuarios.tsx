@@ -26,7 +26,6 @@ const ALL_VIEWS = [
   { key: "suporte", label: "Suporte" },
   { key: "academy", label: "Treinamentos" },
   { key: "onboarding", label: "Onboarding" },
-  { key: "crm-juridico", label: "CRM Jurídico" },
   { key: "visao-contratos", label: "Contratos & Pagamentos" },
   { key: "crm", label: "CRM" },
   { key: "demandas", label: "Demandas" },
