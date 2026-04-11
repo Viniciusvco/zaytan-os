@@ -44,7 +44,7 @@ export function LeadQueue({ campaignId }: Props) {
 
   const distributeMut = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("distribute-leads", {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
         body: { action: "distribute", campaign_id: campaignId },
       });
       if (error) throw error;
@@ -60,7 +60,7 @@ export function LeadQueue({ campaignId }: Props) {
 
   const ingestMut = useMutation({
     mutationFn: async (leadsData: any[]) => {
-      const { data, error } = await supabase.functions.invoke("distribute-leads", {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
         body: { action: "ingest", campaign_id: campaignId, leads: leadsData },
       });
       if (error) throw error;
@@ -77,7 +77,7 @@ export function LeadQueue({ campaignId }: Props) {
 
   const expireMut = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("distribute-leads", {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
         body: { action: "expire_stock" },
       });
       if (error) throw error;
