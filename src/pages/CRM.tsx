@@ -97,11 +97,20 @@ const CRM = () => {
     return Array.from(tags).sort();
   }, [leads]);
 
+  // Get unique sources/suppliers
+  const sourceTags = useMemo(() => {
+    const tags = new Set<string>();
+    leads.forEach((l: any) => { if (l.source) tags.add(l.source); });
+    return Array.from(tags).sort();
+  }, [leads]);
+
   // Filter leads
+  const activeDateRange = getDateRange(datePreset);
   const filteredLeads = useMemo(() => {
     return leads.filter((l: any) => {
       if (clientFilter !== "all" && l.client_id !== clientFilter) return false;
       if (sellerFilter !== "all" && l.seller_tag !== sellerFilter) return false;
+      if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const match = (l.name || "").toLowerCase().includes(q) ||
@@ -110,17 +119,17 @@ const CRM = () => {
           (l.seller_tag || "").toLowerCase().includes(q);
         if (!match) return false;
       }
-      if (dateFrom) {
+      if (activeDateRange.from) {
         const entryDate = l.lead_entry_date || l.created_at;
-        if (entryDate < dateFrom) return false;
+        if (entryDate < activeDateRange.from) return false;
       }
-      if (dateTo) {
+      if (activeDateRange.to) {
         const entryDate = l.lead_entry_date || l.created_at;
-        if (entryDate > dateTo + "T23:59:59") return false;
+        if (entryDate > activeDateRange.to + "T23:59:59") return false;
       }
       return true;
     });
-  }, [leads, clientFilter, sellerFilter, searchQuery, dateFrom, dateTo]);
+  }, [leads, clientFilter, sellerFilter, sourceFilter, searchQuery, activeDateRange.from, activeDateRange.to]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, value, loss_reason, notes }: { id: string; status: LeadStatus; value?: number; loss_reason?: string; notes?: string }) => {
