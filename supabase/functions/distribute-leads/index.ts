@@ -10,298 +10,373 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const body = await req.json().catch(() => ({}));
+    const { action, campaign_id, leads, lead_queue_ids, target_client_id, performed_by } = body;
 
-    const externalUrl = Deno.env.get("EXTERNAL_SUPABASE_URL");
-    const externalKey = Deno.env.get("EXTERNAL_SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!externalUrl || !externalKey) {
-      return new Response(
-        JSON.stringify({ error: "External Supabase credentials not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let percentOverrides: Record<string, number> | undefined;
-    let importMode: "new_only" | "all" = "new_only";
-    let targetClientIds: string[] | undefined;
-    try {
-      const body = await req.json();
-      percentOverrides = body?.percent_overrides;
-      importMode = body?.import_mode === "all" ? "all" : "new_only";
-      targetClientIds = body?.target_client_ids;
-    } catch {
-      // no body is fine
-    }
-
-    const externalSupabase = createClient(externalUrl, externalKey);
-
-    // Get contracts
-    const { data: contracts, error: contractsError } = await supabase
-      .from("contracts")
-      .select("client_id, weekly_investment, clients(id, name)")
-      .eq("status", "ativo")
-      .gt("weekly_investment", 0);
-
-    if (contractsError) {
-      return new Response(JSON.stringify({ error: contractsError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!contracts || contracts.length === 0) {
-      return new Response(JSON.stringify({ error: "No active contracts with investment found" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const clientInvestments: Record<string, { name: string; investment: number }> = {};
-    for (const c of contracts) {
-      const cid = c.client_id;
-      const name = (c.clients as any)?.name || "Unknown";
-      if (!clientInvestments[cid]) {
-        clientInvestments[cid] = { name, investment: 0 };
+    // Action: ingest — add leads to queue with dedup check
+    if (action === "ingest") {
+      if (!campaign_id || !leads?.length) {
+        return jsonRes({ error: "campaign_id and leads[] required" }, 400);
       }
-      clientInvestments[cid].investment += Number(c.weekly_investment);
+
+      const campaign = await getCampaign(supabase, campaign_id);
+      if (!campaign) return jsonRes({ error: "Campaign not found" }, 404);
+
+      const results = { inserted: 0, duplicated: 0, details: [] as any[] };
+
+      for (const lead of leads) {
+        // Dedup check by phone or email
+        const isDuplicate = await checkDuplicate(supabase, campaign_id, lead.phone, lead.email);
+
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + campaign.stock_expiry_days);
+
+        const status = isDuplicate ? "duplicado" : "pendente";
+
+        const { data: inserted, error } = await supabase.from("lead_queue").insert({
+          campaign_id,
+          name: lead.name || "Lead sem nome",
+          phone: lead.phone || null,
+          email: lead.email || null,
+          source: lead.source || null,
+          status,
+          expires_at: expiresAt.toISOString(),
+          raw_data: lead.raw_data || null,
+        }).select("id").single();
+
+        if (error) {
+          results.details.push({ name: lead.name, error: error.message });
+        } else {
+          if (isDuplicate) {
+            results.duplicated++;
+            results.details.push({ id: inserted.id, name: lead.name, status: "duplicado" });
+          } else {
+            results.inserted++;
+            results.details.push({ id: inserted.id, name: lead.name, status: "pendente" });
+          }
+        }
+      }
+
+      return jsonRes({ success: true, ...results });
     }
 
-    let clientIds = Object.keys(clientInvestments);
-    if (targetClientIds && targetClientIds.length > 0) {
-      clientIds = clientIds.filter(cid => targetClientIds!.includes(cid));
-      if (clientIds.length === 0) {
-        return new Response(JSON.stringify({ error: "Selected clients have no active contracts with investment" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Action: distribute — distribute pending leads in a campaign
+    if (action === "distribute") {
+      if (!campaign_id) return jsonRes({ error: "campaign_id required" }, 400);
+
+      const campaign = await getCampaign(supabase, campaign_id);
+      if (!campaign) return jsonRes({ error: "Campaign not found" }, 404);
+
+      // Get active, non-paused campaign clients
+      const { data: campaignClients, error: ccErr } = await supabase
+        .from("campaign_clients")
+        .select("*, clients(name)")
+        .eq("campaign_id", campaign_id)
+        .eq("paused", false);
+
+      if (ccErr || !campaignClients?.length) {
+        return jsonRes({ error: "No active clients in campaign" }, 400);
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+
+      // Reset daily counters if needed
+      for (const cc of campaignClients) {
+        if (cc.last_reset_date !== today) {
+          await supabase.from("campaign_clients").update({
+            leads_received_today: 0,
+            last_reset_date: today,
+          }).eq("id", cc.id);
+          cc.leads_received_today = 0;
+          cc.last_reset_date = today;
+        }
+      }
+
+      // Get pending leads
+      const { data: pendingLeads } = await supabase
+        .from("lead_queue")
+        .select("*")
+        .eq("campaign_id", campaign_id)
+        .eq("status", "pendente")
+        .order("created_at", { ascending: true });
+
+      if (!pendingLeads?.length) {
+        return jsonRes({ success: true, message: "No pending leads", distributed: 0 });
+      }
+
+      let distributed = 0;
+      let stocked = 0;
+
+      for (const lead of pendingLeads) {
+        // Mark as processing
+        await supabase.from("lead_queue").update({ status: "em_processamento" }).eq("id", lead.id);
+
+        // Find eligible clients (not at daily limit)
+        const eligible = campaignClients.filter(cc => {
+          if (cc.daily_limit !== null && cc.leads_received_today >= cc.daily_limit) return false;
+          return true;
         });
-      }
-    }
 
-    const totalInvestment = clientIds.reduce((s, cid) => s + clientInvestments[cid].investment, 0);
-    if (totalInvestment <= 0) {
-      return new Response(JSON.stringify({ error: "Total investment is zero" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        if (eligible.length === 0) {
+          // All clients at limit — send to stock (general)
+          await supabase.from("lead_queue").update({
+            status: "estoque",
+            stock_client_id: null,
+          }).eq("id", lead.id);
 
-    // Calculate percentages
-    const clientPercentages: Record<string, number> = {};
-    if (percentOverrides && Object.keys(percentOverrides).length > 0) {
-      let overriddenTotal = 0;
-      let remainingInvestment = totalInvestment;
-      for (const cid of clientIds) {
-        if (percentOverrides[cid] !== undefined) {
-          clientPercentages[cid] = percentOverrides[cid];
-          overriddenTotal += percentOverrides[cid];
-          remainingInvestment -= clientInvestments[cid].investment;
+          stocked++;
+          continue;
         }
-      }
-      const remainingPercent = 100 - overriddenTotal;
-      for (const cid of clientIds) {
-        if (percentOverrides[cid] === undefined) {
-          clientPercentages[cid] = remainingInvestment > 0
-            ? (clientInvestments[cid].investment / remainingInvestment) * remainingPercent
-            : remainingPercent / clientIds.filter(id => percentOverrides![id] === undefined).length;
-        }
-      }
-    } else {
-      for (const cid of clientIds) {
-        clientPercentages[cid] = (clientInvestments[cid].investment / totalInvestment) * 100;
-      }
-    }
 
-    // Get existing leads per target client (by ext_id)
-    const existingLeadsByClient: Record<string, Map<string, { id: string; status: string }>> = {};
-    for (const cid of clientIds) {
-      const { data: existingLeads } = await supabase
-        .from("leads")
-        .select("id, notes, status")
-        .eq("client_id", cid)
-        .eq("source", "leads_laportec_star5");
+        // Find client with highest accumulated balance (Largest Remainder method)
+        eligible.sort((a, b) => Number(b.accumulated_balance) - Number(a.accumulated_balance));
+        const winner = eligible[0];
 
-      const map = new Map<string, { id: string; status: string }>();
-      for (const l of existingLeads || []) {
-        if (l.notes) {
-          const match = l.notes.match(/ext_id:(\d+)/);
-          if (match) {
-            map.set(match[1], { id: l.id, status: l.status });
+        // Distribute lead
+        await supabase.from("lead_queue").update({
+          status: "distribuido",
+          assigned_client_id: winner.client_id,
+          distribution_rule: "proporcional",
+          distributed_at: new Date().toISOString(),
+        }).eq("id", lead.id);
+
+        // Update client counters
+        const newBalance = Number(winner.accumulated_balance) - 1 + (Number(winner.weight_percent) / 100);
+        winner.leads_received_today++;
+        winner.accumulated_balance = newBalance;
+
+        await supabase.from("campaign_clients").update({
+          leads_received_today: winner.leads_received_today,
+          accumulated_balance: newBalance,
+        }).eq("id", winner.id);
+
+        // Update other clients' accumulated balances (they didn't receive, so balance grows)
+        for (const cc of campaignClients) {
+          if (cc.id !== winner.id && !cc.paused) {
+            const updatedBalance = Number(cc.accumulated_balance) + (Number(cc.weight_percent) / 100);
+            cc.accumulated_balance = updatedBalance;
+            await supabase.from("campaign_clients").update({
+              accumulated_balance: updatedBalance,
+            }).eq("id", cc.id);
           }
         }
-      }
-      existingLeadsByClient[cid] = map;
-    }
 
-    // Fetch external leads
-    const { data: externalLeads, error: extError } = await externalSupabase
-      .from("leads_laportec_star5")
-      .select("*");
+        // Audit log
+        await supabase.from("distribution_logs").insert({
+          lead_queue_id: lead.id,
+          client_id: winner.client_id,
+          campaign_id,
+          rule_applied: "proporcional",
+          weight_at_distribution: winner.weight_percent,
+          accumulated_balance_at: newBalance,
+          status_before: "pendente",
+          status_after: "distribuido",
+          performed_by: performed_by || null,
+        });
 
-    if (extError) {
-      return new Response(JSON.stringify({ error: `External query failed: ${extError.message}` }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const allExternalLeads = externalLeads || [];
-    if (allExternalLeads.length === 0) {
-      return new Response(
-        JSON.stringify({ message: "No external leads found", total_new_leads: 0, total_inserted: 0 }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Collect ALL ext_ids already synced across ALL target clients
-    const allSyncedExtIds = new Set<string>();
-    for (const cid of clientIds) {
-      for (const extId of existingLeadsByClient[cid].keys()) {
-        allSyncedExtIds.add(extId);
-      }
-    }
-
-    // Separate new leads from existing ones
-    const newExternalLeads = allExternalLeads.filter(lead => {
-      const extId = String(lead["ID Lead"]);
-      return !allSyncedExtIds.has(extId);
-    });
-
-    const existingExternalLeads = allExternalLeads.filter(lead => {
-      const extId = String(lead["ID Lead"]);
-      return allSyncedExtIds.has(extId);
-    });
-
-    // For new_only mode: distribute ONLY new leads based on percentages
-    // For all mode: also update existing leads data (without changing status)
-    const leadsToDistribute = importMode === "new_only" ? newExternalLeads : newExternalLeads;
-    const totalNewLeads = leadsToDistribute.length;
-
-    // Distribute NEW leads based on percentages
-    const leadsToInsert: any[] = [];
-    const insertedCount: Record<string, number> = {};
-
-    if (totalNewLeads > 0) {
-      const shares: { clientId: string; raw: number; rounded: number }[] = clientIds.map((cid) => {
-        const pct = clientPercentages[cid] / 100;
-        return { clientId: cid, raw: pct * totalNewLeads, rounded: Math.floor(pct * totalNewLeads) };
-      });
-
-      let distributed = shares.reduce((s, sh) => s + sh.rounded, 0);
-      let remainder = totalNewLeads - distributed;
-      const byFraction = [...shares].sort((a, b) => (b.raw - b.rounded) - (a.raw - a.rounded));
-      for (let i = 0; i < remainder; i++) {
-        byFraction[i % byFraction.length].rounded++;
-      }
-
-      const clientQueues: Record<string, number> = {};
-      for (const sh of shares) {
-        clientQueues[sh.clientId] = sh.rounded;
-      }
-
-      for (const lead of leadsToDistribute) {
-        let bestClient = clientIds[0];
-        let bestRemaining = 0;
-        for (const cid of clientIds) {
-          if ((clientQueues[cid] || 0) > bestRemaining) {
-            bestRemaining = clientQueues[cid];
-            bestClient = cid;
-          }
-        }
-        clientQueues[bestClient]--;
-
-        const extId = String(lead["ID Lead"]);
-        leadsToInsert.push({
-          client_id: bestClient,
-          name: lead["Nome"] || "Lead sem nome",
-          email: lead["Email"] || null,
-          phone: lead["Telefone"] || null,
-          source: "leads_laportec_star5",
+        // Also insert into leads table for CRM
+        await supabase.from("leads").insert({
+          client_id: winner.client_id,
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email,
+          source: lead.source || "motor_revisional",
           status: "novo",
-          notes: `ext_id:${extId}`,
-          financing_type: lead["Qual tipo de financiamento"] || null,
-          installment_value: lead["Valor das parcelas"] || null,
-          lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
+          notes: `lead_queue_id:${lead.id}`,
+          lead_entry_date: new Date().toISOString(),
         });
-        insertedCount[bestClient] = (insertedCount[bestClient] || 0) + 1;
+
+        distributed++;
       }
-    }
 
-    // Handle existing leads update (only in "all" mode, never change status)
-    const leadsToUpdate: any[] = [];
-    const skippedCount: Record<string, number> = {};
-
-    if (importMode === "all") {
-      for (const lead of existingExternalLeads) {
-        const extId = String(lead["ID Lead"]);
-        for (const cid of clientIds) {
-          const existing = existingLeadsByClient[cid].get(extId);
-          if (existing) {
-            leadsToUpdate.push({
-              id: existing.id,
-              name: lead["Nome"] || "Lead sem nome",
-              email: lead["Email"] || null,
-              phone: lead["Telefone"] || null,
-              financing_type: lead["Qual tipo de financiamento"] || null,
-              installment_value: lead["Valor das parcelas"] || null,
-              lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
-            });
-            skippedCount[cid] = (skippedCount[cid] || 0) + 1;
-          }
-        }
-      }
-    } else {
-      // Count skipped for reporting
-      for (const cid of clientIds) {
-        skippedCount[cid] = existingLeadsByClient[cid].size;
-      }
-    }
-
-    // Batch insert new leads
-    const BATCH_SIZE = 50;
-    let totalInserted = 0;
-    for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
-      const batch = leadsToInsert.slice(i, i + BATCH_SIZE);
-      const { error: insertError } = await supabase.from("leads").insert(batch);
-      if (insertError) {
-        return new Response(
-          JSON.stringify({ error: `Insert failed at batch ${i}: ${insertError.message}`, inserted_so_far: totalInserted }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      totalInserted += batch.length;
-    }
-
-    // Batch update existing leads
-    let totalUpdated = 0;
-    for (const upd of leadsToUpdate) {
-      const { id, ...fields } = upd;
-      const { error: updError } = await supabase.from("leads").update(fields).eq("id", id);
-      if (!updError) totalUpdated++;
-    }
-
-    const distribution = clientIds.map((cid) => ({
-      client_id: cid,
-      client_name: clientInvestments[cid].name,
-      investment: clientInvestments[cid].investment,
-      percentage: Math.round(clientPercentages[cid] * 100) / 100,
-      leads_assigned: insertedCount[cid] || 0,
-      leads_existing: skippedCount[cid] || 0,
-      leads_updated: importMode === "all" ? (skippedCount[cid] || 0) : 0,
-    }));
-
-    return new Response(
-      JSON.stringify({
+      return jsonRes({
         success: true,
-        total_external_leads: allExternalLeads.length,
-        total_new_leads: totalNewLeads,
-        total_inserted: totalInserted,
-        total_updated: totalUpdated,
-        distribution,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+        distributed,
+        stocked,
+        total_pending: pendingLeads.length,
+      });
+    }
+
+    // Action: send_stock — manually send stock leads to a client
+    if (action === "send_stock") {
+      if (!lead_queue_ids?.length || !target_client_id) {
+        return jsonRes({ error: "lead_queue_ids[] and target_client_id required" }, 400);
+      }
+
+      let sent = 0;
+      for (const lqId of lead_queue_ids) {
+        const { data: lead } = await supabase.from("lead_queue").select("*").eq("id", lqId).single();
+        if (!lead || lead.status !== "estoque") continue;
+
+        // Check daily limit
+        const { data: cc } = await supabase
+          .from("campaign_clients")
+          .select("*")
+          .eq("campaign_id", lead.campaign_id)
+          .eq("client_id", target_client_id)
+          .single();
+
+        if (cc?.daily_limit !== null && cc && cc.leads_received_today >= cc.daily_limit) {
+          continue; // Skip - at daily limit
+        }
+
+        await supabase.from("lead_queue").update({
+          status: "distribuido",
+          assigned_client_id: target_client_id,
+          distribution_rule: "manual",
+          distributed_at: new Date().toISOString(),
+        }).eq("id", lqId);
+
+        if (cc) {
+          await supabase.from("campaign_clients").update({
+            leads_received_today: cc.leads_received_today + 1,
+          }).eq("id", cc.id);
+        }
+
+        // Audit log
+        await supabase.from("distribution_logs").insert({
+          lead_queue_id: lqId,
+          client_id: target_client_id,
+          campaign_id: lead.campaign_id,
+          rule_applied: "manual",
+          weight_at_distribution: cc?.weight_percent || 0,
+          accumulated_balance_at: cc?.accumulated_balance || 0,
+          status_before: "estoque",
+          status_after: "distribuido",
+          performed_by: performed_by || null,
+        });
+
+        // Insert into CRM leads
+        await supabase.from("leads").insert({
+          client_id: target_client_id,
+          name: lead.name,
+          phone: lead.phone,
+          email: lead.email,
+          source: lead.source || "motor_revisional",
+          status: "novo",
+          notes: `lead_queue_id:${lead.id} (estoque)`,
+          lead_entry_date: new Date().toISOString(),
+        });
+
+        sent++;
+      }
+
+      return jsonRes({ success: true, sent });
+    }
+
+    // Action: expire_stock — mark expired stock leads
+    if (action === "expire_stock") {
+      const now = new Date().toISOString();
+      const { data: expired, error } = await supabase
+        .from("lead_queue")
+        .update({ status: "expirado" })
+        .eq("status", "estoque")
+        .lt("expires_at", now)
+        .select("id");
+
+      return jsonRes({ success: true, expired_count: expired?.length || 0 });
+    }
+
+    // Action: metrics — get monitoring metrics for a campaign
+    if (action === "metrics") {
+      if (!campaign_id) return jsonRes({ error: "campaign_id required" }, 400);
+
+      const today = new Date().toISOString().split("T")[0];
+      const todayStart = `${today}T00:00:00.000Z`;
+      const todayEnd = `${today}T23:59:59.999Z`;
+
+      const [
+        { count: totalToday },
+        { count: distributedToday },
+        { data: stockByClient },
+        { count: expiredCount },
+        { count: duplicateCount },
+        { count: processingCount },
+        { data: lastDist },
+        { data: clientMetrics },
+      ] = await Promise.all([
+        supabase.from("lead_queue").select("*", { count: "exact", head: true })
+          .eq("campaign_id", campaign_id).gte("created_at", todayStart).lte("created_at", todayEnd),
+        supabase.from("lead_queue").select("*", { count: "exact", head: true })
+          .eq("campaign_id", campaign_id).eq("status", "distribuido")
+          .gte("distributed_at", todayStart).lte("distributed_at", todayEnd),
+        supabase.from("lead_queue").select("stock_client_id, assigned_client_id")
+          .eq("campaign_id", campaign_id).eq("status", "estoque"),
+        supabase.from("lead_queue").select("*", { count: "exact", head: true })
+          .eq("campaign_id", campaign_id).eq("status", "expirado"),
+        supabase.from("lead_queue").select("*", { count: "exact", head: true })
+          .eq("campaign_id", campaign_id).eq("status", "duplicado"),
+        supabase.from("lead_queue").select("*", { count: "exact", head: true })
+          .eq("campaign_id", campaign_id).eq("status", "em_processamento"),
+        supabase.from("distribution_logs").select("created_at")
+          .eq("campaign_id", campaign_id).order("created_at", { ascending: false }).limit(1),
+        supabase.from("campaign_clients").select("*, clients(name)")
+          .eq("campaign_id", campaign_id),
+      ]);
+
+      return jsonRes({
+        total_leads_today: totalToday || 0,
+        distributed_today: distributedToday || 0,
+        stock_count: stockByClient?.length || 0,
+        expired_count: expiredCount || 0,
+        duplicate_pending: duplicateCount || 0,
+        processing_stuck: processingCount || 0,
+        last_distribution: lastDist?.[0]?.created_at || null,
+        clients: (clientMetrics || []).map((cc: any) => ({
+          client_id: cc.client_id,
+          client_name: cc.clients?.name || "—",
+          weight_percent: cc.weight_percent,
+          weight_override: cc.weight_override,
+          daily_limit: cc.daily_limit,
+          leads_received_today: cc.leads_received_today,
+          accumulated_balance: cc.accumulated_balance,
+          paused: cc.paused,
+          investment: cc.investment_amount,
+        })),
+      });
+    }
+
+    return jsonRes({ error: "Unknown action. Use: ingest, distribute, send_stock, expire_stock, metrics" }, 400);
+
   } catch (error) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonRes({ error: (error as Error).message }, 500);
   }
 });
+
+function jsonRes(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function getCampaign(supabase: any, id: string) {
+  const { data } = await supabase.from("campaigns").select("*").eq("id", id).single();
+  return data;
+}
+
+async function checkDuplicate(supabase: any, campaignId: string, phone?: string, email?: string): Promise<boolean> {
+  if (!phone && !email) return false;
+
+  let query = supabase.from("lead_queue")
+    .select("id", { count: "exact", head: true })
+    .eq("campaign_id", campaignId)
+    .in("status", ["distribuido", "pendente", "em_processamento", "estoque"]);
+
+  if (phone && email) {
+    query = query.or(`phone.eq.${phone},email.eq.${email}`);
+  } else if (phone) {
+    query = query.eq("phone", phone);
+  } else {
+    query = query.eq("email", email);
+  }
+
+  const { count } = await query;
+  return (count || 0) > 0;
+}
