@@ -248,9 +248,11 @@ const CRM = () => {
   const totalFaturado = closedLeads.reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
 
 
+  const { profile } = useAuth();
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
   const canAddLeads = isAdmin;
+  const canImportCSV = isAdmin || (isClient && (profile as any)?.csv_import_enabled);
 
   const [syncing, setSyncing] = useState(false);
   const syncLeads = async () => {
@@ -392,7 +394,7 @@ const CRM = () => {
             {syncing ? "Sincronizando..." : "Carregar Leads"}
           </Button>
           <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Exportar CSV</Button>
-          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>
+          {canImportCSV && <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>}
           {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
         </div>
       </div>
@@ -425,16 +427,32 @@ const CRM = () => {
           <option value="all">Todos vendedores</option>
           {sellerTags.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">De:</span>
-          <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Até:</span>
-          <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-        </div>
-        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo || searchQuery) && (
-          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); setSearchQuery(""); }}>Limpar filtros</button>
+        <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+          <option value="all">Todos fornecedores</option>
+          {sourceTags.map(t => <option key={t} value={t}>{formatSource(t)}</option>)}
+        </select>
+        <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={datePreset} onChange={e => { setDatePreset(e.target.value); }}>
+          <option value="all">Todas as datas</option>
+          <option value="7d">Últimos 7 dias</option>
+          <option value="30d">Últimos 30 dias</option>
+          <option value="90d">Últimos 90 dias</option>
+          <option value="month">Mês atual</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        {datePreset === "custom" && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">De:</span>
+              <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Até:</span>
+              <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            </div>
+          </>
+        )}
+        {(clientFilter !== "all" || sellerFilter !== "all" || sourceFilter !== "all" || datePreset !== "month" || searchQuery) && (
+          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setSourceFilter("all"); setDatePreset("month"); setSearchQuery(""); }}>Limpar filtros</button>
         )}
       </div>
 
