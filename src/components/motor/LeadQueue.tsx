@@ -33,7 +33,7 @@ export function LeadQueue({ campaignId }: Props) {
         .order("created_at", { ascending: false })
         .limit(200);
       if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
+        query = query.eq("status", statusFilter as any);
       }
       const { data, error } = await query;
       if (error) throw error;
