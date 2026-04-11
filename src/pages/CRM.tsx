@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, Phone, Mail, ExternalLink, Download, Upload, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, Search, MoreHorizontal, FileText } from "lucide-react";
 import { LaudoGenerator } from "@/components/LaudoGenerator";
@@ -38,8 +39,21 @@ const CRM = () => {
   // Filters - default to current month
   const [clientFilter, setClientFilter] = useState("all");
   const [sellerFilter, setSellerFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [datePreset, setDatePreset] = useState("month");
   const now = new Date();
+  const getDateRange = (preset: string) => {
+    const today = new Date();
+    switch (preset) {
+      case "7d": { const d = new Date(today); d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "30d": { const d = new Date(today); d.setDate(d.getDate() - 30); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "90d": { const d = new Date(today); d.setDate(d.getDate() - 90); return { from: d.toISOString().split("T")[0], to: today.toISOString().split("T")[0] }; }
+      case "month": return { from: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`, to: today.toISOString().split("T")[0] };
+      case "custom": return { from: dateFrom, to: dateTo };
+      default: return { from: "", to: "" };
+    }
+  };
   const [dateFrom, setDateFrom] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
   const [dateTo, setDateTo] = useState(now.toISOString().split("T")[0]);
 
@@ -83,11 +97,20 @@ const CRM = () => {
     return Array.from(tags).sort();
   }, [leads]);
 
+  // Get unique sources/suppliers
+  const sourceTags = useMemo(() => {
+    const tags = new Set<string>();
+    leads.forEach((l: any) => { if (l.source) tags.add(l.source); });
+    return Array.from(tags).sort();
+  }, [leads]);
+
   // Filter leads
+  const activeDateRange = getDateRange(datePreset);
   const filteredLeads = useMemo(() => {
     return leads.filter((l: any) => {
       if (clientFilter !== "all" && l.client_id !== clientFilter) return false;
       if (sellerFilter !== "all" && l.seller_tag !== sellerFilter) return false;
+      if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const match = (l.name || "").toLowerCase().includes(q) ||
@@ -96,17 +119,17 @@ const CRM = () => {
           (l.seller_tag || "").toLowerCase().includes(q);
         if (!match) return false;
       }
-      if (dateFrom) {
+      if (activeDateRange.from) {
         const entryDate = l.lead_entry_date || l.created_at;
-        if (entryDate < dateFrom) return false;
+        if (entryDate < activeDateRange.from) return false;
       }
-      if (dateTo) {
+      if (activeDateRange.to) {
         const entryDate = l.lead_entry_date || l.created_at;
-        if (entryDate > dateTo + "T23:59:59") return false;
+        if (entryDate > activeDateRange.to + "T23:59:59") return false;
       }
       return true;
     });
-  }, [leads, clientFilter, sellerFilter, searchQuery, dateFrom, dateTo]);
+  }, [leads, clientFilter, sellerFilter, sourceFilter, searchQuery, activeDateRange.from, activeDateRange.to]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, value, loss_reason, notes }: { id: string; status: LeadStatus; value?: number; loss_reason?: string; notes?: string }) => {
@@ -225,9 +248,11 @@ const CRM = () => {
   const totalFaturado = closedLeads.reduce((sum: number, l: any) => sum + (Number(l.value) || 0), 0);
 
 
+  const { profile } = useAuth();
   const isClient = role === "cliente";
   const isAdmin = role === "admin";
   const canAddLeads = isAdmin;
+  const canImportCSV = isAdmin || (isClient && (profile as any)?.csv_import_enabled);
 
   const [syncing, setSyncing] = useState(false);
   const syncLeads = async () => {
@@ -369,7 +394,7 @@ const CRM = () => {
             {syncing ? "Sincronizando..." : "Carregar Leads"}
           </Button>
           <Button variant="outline" size="sm" onClick={exportCSV}><Download className="h-4 w-4 mr-1" /> Exportar CSV</Button>
-          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>
+          {canImportCSV && <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" /> Importar CSV</Button>}
           {canAddLeads && <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Lead</Button>}
         </div>
       </div>
@@ -402,16 +427,32 @@ const CRM = () => {
           <option value="all">Todos vendedores</option>
           {sellerTags.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">De:</span>
-          <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground">Até:</span>
-          <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-        </div>
-        {(clientFilter !== "all" || sellerFilter !== "all" || dateFrom || dateTo || searchQuery) && (
-          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setDateFrom(""); setDateTo(""); setSearchQuery(""); }}>Limpar filtros</button>
+        <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}>
+          <option value="all">Todos fornecedores</option>
+          {sourceTags.map(t => <option key={t} value={t}>{formatSource(t)}</option>)}
+        </select>
+        <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={datePreset} onChange={e => { setDatePreset(e.target.value); }}>
+          <option value="all">Todas as datas</option>
+          <option value="7d">Últimos 7 dias</option>
+          <option value="30d">Últimos 30 dias</option>
+          <option value="90d">Últimos 90 dias</option>
+          <option value="month">Mês atual</option>
+          <option value="custom">Personalizado</option>
+        </select>
+        {datePreset === "custom" && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">De:</span>
+              <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Até:</span>
+              <input type="date" className="h-9 px-2 rounded-lg bg-muted border-0 text-sm" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+            </div>
+          </>
+        )}
+        {(clientFilter !== "all" || sellerFilter !== "all" || sourceFilter !== "all" || datePreset !== "month" || searchQuery) && (
+          <button className="text-xs text-primary hover:underline" onClick={() => { setClientFilter("all"); setSellerFilter("all"); setSourceFilter("all"); setDatePreset("month"); setSearchQuery(""); }}>Limpar filtros</button>
         )}
       </div>
 

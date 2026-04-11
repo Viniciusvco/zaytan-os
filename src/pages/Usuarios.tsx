@@ -24,7 +24,7 @@ const ALL_VIEWS = [
   { key: "feedbacks", label: "Feedbacks" },
   { key: "minha-equipe", label: "Minha Equipe" },
   { key: "suporte", label: "Suporte" },
-  { key: "academy", label: "Academy" },
+  { key: "academy", label: "Treinamentos" },
   { key: "onboarding", label: "Onboarding" },
   { key: "crm-juridico", label: "CRM Jurídico" },
   { key: "visao-contratos", label: "Contratos & Pagamentos" },
@@ -184,8 +184,9 @@ const Usuarios = () => {
           <thead><tr className="border-b border-border">
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Usuário</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Email</th>
-            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Perfil</th>
+             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Perfil</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
+            <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">CSV Import</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Início Contrato</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Lifetime</th>
             <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Ações</th>
@@ -201,6 +202,16 @@ const Usuarios = () => {
                   <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${tc.className}`}>{tc.label}{subLabel}</span></td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${u.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.active ? "Ativo" : "Inativo"}</span></td>
+                  <td className="px-4 py-3 text-center">
+                    {u.role === "cliente" && (
+                      <Switch checked={u.csv_import_enabled || false} onCheckedChange={(checked) => {
+                        supabase.from("profiles").update({ csv_import_enabled: checked } as any).eq("id", u.id).then(({ error }) => {
+                          if (error) toast.error(error.message);
+                          else { qc.invalidateQueries({ queryKey: ["profiles"] }); toast.success(checked ? "CSV habilitado" : "CSV desabilitado"); }
+                        });
+                      }} />
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(contractDate).toLocaleDateString("pt-BR")}</td>
                   <td className="px-4 py-3 text-sm font-medium">{calcLifetime(contractDate)}</td>
                   <td className="px-4 py-3 text-right">

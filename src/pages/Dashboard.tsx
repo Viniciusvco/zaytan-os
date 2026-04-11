@@ -179,7 +179,14 @@ const Dashboard = () => {
       </ComingSoon>
     );
   }
-  return <Navigate to="/financeiro" replace />;
+  // Admin dashboard — show admin-specific view
+  return (
+    <div className="space-y-6 max-w-6xl">
+      <h1 className="text-2xl font-bold tracking-tight">Dashboard Admin</h1>
+      <p className="text-sm text-muted-foreground">Visão geral administrativa. Acesse o Financeiro, CRM ou Motor Revisional pelo menu lateral.</p>
+      <Navigate to="/financeiro" replace />
+    </div>
+  );
 };
 
 export default Dashboard;

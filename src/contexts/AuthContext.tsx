@@ -12,6 +12,7 @@ interface Profile {
   role: "admin" | "colaborador" | "cliente";
   colaborador_type: "gestor" | "designer" | "cs" | null;
   active: boolean;
+  csv_import_enabled: boolean;
 }
 
 interface AuthContextType {

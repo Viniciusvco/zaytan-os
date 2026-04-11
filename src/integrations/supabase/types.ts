@@ -830,6 +830,7 @@ export type Database = {
             | null
           contract_start_date: string | null
           created_at: string
+          csv_import_enabled: boolean
           email: string
           full_name: string
           id: string
@@ -846,6 +847,7 @@ export type Database = {
             | null
           contract_start_date?: string | null
           created_at?: string
+          csv_import_enabled?: boolean
           email: string
           full_name: string
           id?: string
@@ -862,6 +864,7 @@ export type Database = {
             | null
           contract_start_date?: string | null
           created_at?: string
+          csv_import_enabled?: boolean
           email?: string
           full_name?: string
           id?: string
