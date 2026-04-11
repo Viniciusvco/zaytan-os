@@ -194,14 +194,77 @@ const Contratos = () => {
     .filter(([_, v]) => v.investment > 0)
     .map(([cid, v]) => {
       const autoPercent = totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0;
+      const pct = percentOverrides[cid] !== undefined ? percentOverrides[cid] : autoPercent;
+      // Pre-calculate daily limit suggestion: assume ~100 leads/day total pool, distribute by %
+      const suggestedDailyLimit = Math.max(1, Math.round(pct));
       return {
         client_id: cid,
         name: v.name,
         investment: v.investment,
-        percentage: percentOverrides[cid] !== undefined ? percentOverrides[cid] : autoPercent,
+        percentage: pct,
         isOverridden: percentOverrides[cid] !== undefined,
+        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : suggestedDailyLimit,
+        isDailyLimitManual: dailyLimitOverrides[cid] !== undefined,
       };
     });
+
+  // Monitoring: leads distributed per client
+  const monitorDateRange = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    if (monitorPeriod === "today") return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
+    if (monitorPeriod === "7d") {
+      const d = new Date(now); d.setDate(d.getDate() - 7);
+      return { from: d.toISOString(), to: now.toISOString() };
+    }
+    if (monitorPeriod === "30d") {
+      const d = new Date(now); d.setDate(d.getDate() - 30);
+      return { from: d.toISOString(), to: now.toISOString() };
+    }
+    return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
+  }, [monitorPeriod]);
+
+  const { data: monitoringData, isLoading: monitorLoading } = useQuery({
+    queryKey: ["distribution-monitoring", monitorDateRange, clients],
+    queryFn: async () => {
+      const clientIds = distributionPreview.map(d => d.client_id);
+      if (clientIds.length === 0) return { clients: [], lastUpdate: null };
+
+      const { data: leads } = await supabase
+        .from("leads")
+        .select("client_id, created_at")
+        .in("client_id", clientIds)
+        .eq("source", "leads_laportec_star5")
+        .gte("created_at", monitorDateRange.from)
+        .lte("created_at", monitorDateRange.to);
+
+      const countByClient: Record<string, number> = {};
+      let lastUpdate: string | null = null;
+      for (const l of leads || []) {
+        countByClient[l.client_id] = (countByClient[l.client_id] || 0) + 1;
+        if (!lastUpdate || l.created_at > lastUpdate) lastUpdate = l.created_at;
+      }
+
+      return {
+        clients: distributionPreview.map(d => ({
+          client_id: d.client_id,
+          name: d.name,
+          count: countByClient[d.client_id] || 0,
+          dailyLimit: d.dailyLimit,
+        })),
+        lastUpdate,
+        total: (leads || []).length,
+      };
+    },
+    enabled: distributionPreview.length > 0,
+    refetchInterval: 30000,
+  });
+
+  const handleResetDistribution = () => {
+    setPercentOverrides({});
+    setDailyLimitOverrides({});
+    toast.success("Distribuição reconfigurada com base no investimento semanal");
+  };
 
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any>(null);
