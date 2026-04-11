@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Plus, Phone, Mail, ExternalLink, Download, Upload, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, Search, MoreHorizontal, FileText } from "lucide-react";
 import { LaudoGenerator } from "@/components/LaudoGenerator";
