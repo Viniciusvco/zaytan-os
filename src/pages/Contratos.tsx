@@ -186,6 +186,8 @@ const Contratos = () => {
 
   const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
   const [dailyLimitOverrides, setDailyLimitOverrides] = useState<Record<string, number | null>>({});
+  const [costPerLeadReal, setCostPerLeadReal] = useState(10);
+  const [costPerLeadSale, setCostPerLeadSale] = useState(20);
   const [importMode, setImportMode] = useState<"new_only" | "all">("new_only");
   const [importClientFilter, setImportClientFilter] = useState<string>("all");
   const [monitorPeriod, setMonitorPeriod] = useState<string>("today");
@@ -195,15 +197,16 @@ const Contratos = () => {
     .map(([cid, v]) => {
       const autoPercent = totalWeeklyInvestment > 0 ? (v.investment / totalWeeklyInvestment) * 100 : 0;
       const pct = percentOverrides[cid] !== undefined ? percentOverrides[cid] : autoPercent;
-      // Pre-calculate daily limit suggestion: assume ~100 leads/day total pool, distribute by %
-      const suggestedDailyLimit = Math.max(1, Math.round(pct));
+      // Daily limit = weekly investment / cost per sale lead / 7 days
+      const calculatedDailyLimit = costPerLeadSale > 0 ? Math.max(1, Math.round(v.investment / costPerLeadSale / 7)) : 1;
       return {
         client_id: cid,
         name: v.name,
         investment: v.investment,
         percentage: pct,
         isOverridden: percentOverrides[cid] !== undefined,
-        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : suggestedDailyLimit,
+        dailyLimit: dailyLimitOverrides[cid] !== undefined ? dailyLimitOverrides[cid] : calculatedDailyLimit,
+        calculatedDailyLimit,
         isDailyLimitManual: dailyLimitOverrides[cid] !== undefined,
       };
     });
@@ -433,6 +436,38 @@ const Contratos = () => {
               </div>
             </div>
 
+            {/* Cost per lead config */}
+            <div className="flex items-center gap-4 mb-4 p-3 rounded-lg bg-muted/50 border border-border">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Custo/Lead Real:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">R$</span>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.5}
+                    className="w-20 h-7 px-2 rounded bg-background border border-border text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={costPerLeadReal}
+                    onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setCostPerLeadReal(v); }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">Custo/Lead Venda:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-muted-foreground">R$</span>
+                  <input
+                    type="number"
+                    min={0.01}
+                    step={0.5}
+                    className="w-20 h-7 px-2 rounded bg-background border border-border text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    value={costPerLeadSale}
+                    onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setCostPerLeadSale(v); }}
+                  />
+                </div>
+              </div>
+              <span className="text-[10px] text-muted-foreground">Limite diário = Invest. Semanal ÷ Custo/Lead Venda ÷ 7</span>
+            </div>
             {distributionPreview.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 Nenhum contrato ativo com investimento semanal configurado.
