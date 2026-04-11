@@ -185,8 +185,10 @@ const Contratos = () => {
   const totalWeeklyInvestment = Object.values(investmentByClient).reduce((s, c) => s + c.investment, 0);
 
   const [percentOverrides, setPercentOverrides] = useState<Record<string, number>>({});
+  const [dailyLimitOverrides, setDailyLimitOverrides] = useState<Record<string, number | null>>({});
   const [importMode, setImportMode] = useState<"new_only" | "all">("new_only");
   const [importClientFilter, setImportClientFilter] = useState<string>("all");
+  const [monitorPeriod, setMonitorPeriod] = useState<string>("today");
 
   const distributionPreview = Object.entries(investmentByClient)
     .filter(([_, v]) => v.investment > 0)
