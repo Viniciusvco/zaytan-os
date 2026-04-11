@@ -32,7 +32,7 @@ const adminItems = {
   gestao: [
     { title: "Equipe (PDI)", url: "/equipe", icon: HeadphonesIcon },
     { title: "Usuários", url: "/usuarios", icon: UserCog },
-    { title: "Academy", url: "/academy", icon: GraduationCap },
+    { title: "Treinamentos", url: "/academy", icon: GraduationCap },
   ],
 };
 
@@ -47,7 +47,7 @@ const colaboradorItems = {
       { title: "CRM", url: "/crm", icon: Target },
     ],
     formacao: [
-      { title: "Academy", url: "/academy", icon: GraduationCap },
+      { title: "Treinamentos", url: "/academy", icon: GraduationCap },
     ],
   },
   designer: {
@@ -58,7 +58,7 @@ const colaboradorItems = {
       { title: "Demandas", url: "/demandas", icon: Kanban },
     ],
     formacao: [
-      { title: "Academy", url: "/academy", icon: GraduationCap },
+      { title: "Treinamentos", url: "/academy", icon: GraduationCap },
     ],
   },
   cs: {
@@ -70,26 +70,20 @@ const colaboradorItems = {
       { title: "CRM", url: "/crm", icon: Target },
     ],
     formacao: [
-      { title: "Academy", url: "/academy", icon: GraduationCap },
+      { title: "Treinamentos", url: "/academy", icon: GraduationCap },
     ],
   },
 };
 
+// Default client views: CRM, Contratos, Treinamentos, Onboarding
 const clienteItems = {
   principal: [
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Demandas", url: "/demandas", icon: Kanban },
     { title: "CRM", url: "/crm", icon: Target },
-    { title: "CRM Jurídico", url: "/crm-juridico", icon: Scale },
     { title: "Contratos", url: "/visao-contratos", icon: CreditCard },
   ],
-  sucesso: [
-    { title: "Feedbacks", url: "/feedbacks", icon: MessageSquare },
-    { title: "Minha Equipe", url: "/minha-equipe", icon: Users },
-    { title: "Suporte", url: "/suporte", icon: Bot },
-  ],
   aprender: [
-    { title: "Academy", url: "/academy", icon: GraduationCap },
+    { title: "Treinamentos", url: "/academy", icon: GraduationCap },
   ],
   config: [
     { title: "Onboarding", url: "/onboarding", icon: Rocket },
@@ -141,7 +135,7 @@ export function AppSidebar() {
     groups = adminItems;
   } else if (role === "colaborador") {
     if (!trainingComplete) {
-      groups = { formacao: [{ title: "Academy", url: "/academy", icon: GraduationCap }] };
+      groups = { formacao: [{ title: "Treinamentos", url: "/academy", icon: GraduationCap }] };
     } else {
       groups = colaboradorItems[colaboradorType];
     }
@@ -151,11 +145,7 @@ export function AppSidebar() {
 
   // Determine which groups are "coming soon" based on role
   const comingSoonGroups = new Set<string>();
-  if (role === "cliente") {
-    comingSoonGroups.add("sucesso");
-    comingSoonGroups.add("aprender");
-    comingSoonGroups.add("config");
-  } else if (role === "colaborador") {
+  if (role === "colaborador") {
     Object.keys(groups).forEach(k => comingSoonGroups.add(k));
   }
 
