@@ -43,7 +43,7 @@ export function StockManager({ campaignId }: Props) {
 
   const sendStockMut = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("distribute-leads", {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
         body: {
           action: "send_stock",
           lead_queue_ids: selectedLeads,

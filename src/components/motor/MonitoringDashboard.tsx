@@ -10,7 +10,7 @@ export function MonitoringDashboard({ campaignId }: Props) {
     queryKey: ["motor-metrics", campaignId],
     queryFn: async () => {
       if (!campaignId) return null;
-      const { data, error } = await supabase.functions.invoke("distribute-leads", {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
         body: { action: "metrics", campaign_id: campaignId },
       });
       if (error) throw error;
