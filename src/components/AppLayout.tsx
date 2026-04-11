@@ -121,7 +121,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
                 <h2 className="text-lg font-bold">Treinamento Obrigatório</h2>
                 <p className="text-sm text-muted-foreground text-center max-w-md">
-                  Complete todos os treinamentos obrigatórios na Academy antes de acessar o sistema.
+                  Complete todos os treinamentos obrigatórios em Treinamentos antes de acessar o sistema.
                 </p>
               </div>
             ) : children}
