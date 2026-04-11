@@ -536,6 +536,7 @@ export type Database = {
           active: boolean
           client_id: string
           created_at: string
+          daily_limit: number | null
           id: string
           investment_amount: number
           period_end: string | null
@@ -546,6 +547,7 @@ export type Database = {
           active?: boolean
           client_id: string
           created_at?: string
+          daily_limit?: number | null
           id?: string
           investment_amount?: number
           period_end?: string | null
@@ -556,6 +558,7 @@ export type Database = {
           active?: boolean
           client_id?: string
           created_at?: string
+          daily_limit?: number | null
           id?: string
           investment_amount?: number
           period_end?: string | null

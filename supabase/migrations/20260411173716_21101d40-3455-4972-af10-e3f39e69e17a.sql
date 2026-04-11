@@ -1,0 +1,1 @@
+ALTER TABLE public.lead_distribution_config ADD COLUMN daily_limit integer DEFAULT NULL;
