@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     const status = url.searchParams.get("status");
 
     let query = externalSupabase
-      .from("leads_laportec_star5")
+      .from("leads_geral_campanha")
       .select("*", { count: "exact" })
       .range(offset, offset + limit - 1);
 
