@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle, RefreshCw, PieChart, RotateCcw, Eye, CalendarIcon } from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle, RefreshCw, PieChart, RotateCcw, Eye, CalendarIcon, Send } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -395,10 +395,50 @@ const Contratos = () => {
         lastUpdate,
         totalCurrent: allCurrentLeads.length,
         totalDistributed: allDistributedLogs.length,
+        fetchedAt: new Date().toISOString(),
       };
     },
     enabled: monitorClientIds.length > 0,
     refetchInterval: 30000,
+  });
+
+  // Stock leads for distribution monitoring
+  const [monitorStockSelected, setMonitorStockSelected] = useState<string[]>([]);
+  const [monitorStockTarget, setMonitorStockTarget] = useState("");
+
+  const { data: monitorStockLeads = [], refetch: refetchMonitorStock } = useQuery({
+    queryKey: ["monitor-stock-leads", distributionConfig?.campaignId],
+    queryFn: async () => {
+      if (!distributionConfig?.campaignId) return [];
+      const { data, error } = await supabase.from("lead_queue")
+        .select("*, stock_client:stock_client_id(name)")
+        .eq("campaign_id", distributionConfig.campaignId)
+        .eq("status", "estoque")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!distributionConfig?.campaignId,
+  });
+
+  const sendMonitorStockMut = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
+        body: { action: "send_stock", lead_queue_ids: monitorStockSelected, target_client_id: monitorStockTarget },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["monitor-stock-leads"] });
+      qc.invalidateQueries({ queryKey: ["distribution-monitoring"] });
+      qc.invalidateQueries({ queryKey: ["stock-leads"] });
+      qc.invalidateQueries({ queryKey: ["motor-metrics"] });
+      setMonitorStockSelected([]);
+      setMonitorStockTarget("");
+      toast.success(`${data.sent} lead(s) enviado(s) do estoque`);
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const handleResetDistribution = () => {
@@ -434,6 +474,9 @@ const Contratos = () => {
       });
       if (error) throw error;
       setSyncResult(data);
+      // Auto-refresh monitoring after import
+      refetchMonitoring();
+      refetchMonitorStock();
       if (data?.total_inserted > 0) {
         toast.success(`${data.total_inserted} leads importados! ${data.total_updated > 0 ? `${data.total_updated} atualizados.` : ""}`);
       } else if (data?.total_updated > 0) {
@@ -728,8 +771,11 @@ const Contratos = () => {
                   <h3 className="text-sm font-semibold">Monitoramento de Distribuição</h3>
                   <p className="text-xs text-muted-foreground">
                     Quantidade atual no CRM e distribuição por cliente, pela data de entrada
+                    {monitoringData?.fetchedAt && (
+                      <> · Atualizado em: <span className="font-medium">{new Date(monitoringData.fetchedAt).toLocaleString("pt-BR")}</span></>
+                    )}
                     {monitoringData?.lastUpdate && (
-                      <> · Última atualização: <span className="font-medium">{new Date(monitoringData.lastUpdate).toLocaleString("pt-BR")}</span></>
+                      <> · Último lead: <span className="font-medium">{new Date(monitoringData.lastUpdate).toLocaleString("pt-BR")}</span></>
                     )}
                   </p>
                 </div>
@@ -831,6 +877,74 @@ const Contratos = () => {
                     <span>CRM: {monitoringData.totalCurrent}</span>
                     <span>Distribuídos: {monitoringData.totalDistributed}</span>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Stock Section in Monitoring */}
+            {monitorStockLeads.length > 0 && (
+              <div className="mt-6 border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4 text-warning" /> Estoque ({monitorStockLeads.length} lead{monitorStockLeads.length !== 1 ? "s" : ""})
+                  </h4>
+                  {monitorStockSelected.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-primary">{monitorStockSelected.length} selecionado(s)</span>
+                      <select className="h-7 px-2 rounded bg-muted border-0 text-xs" value={monitorStockTarget} onChange={e => setMonitorStockTarget(e.target.value)}>
+                        <option value="">Enviar para...</option>
+                        {distributionPreview.map(d => (
+                          <option key={d.client_id} value={d.client_id}>{d.name}</option>
+                        ))}
+                      </select>
+                      <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => sendMonitorStockMut.mutate()} disabled={!monitorStockTarget || sendMonitorStockMut.isPending}>
+                        <Send className="h-3.5 w-3.5 mr-1" /> Enviar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-muted/30 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border text-xs text-muted-foreground">
+                        <th className="px-3 py-2 w-8">
+                          <input type="checkbox" checked={monitorStockSelected.length === monitorStockLeads.length && monitorStockLeads.length > 0} onChange={() => setMonitorStockSelected(prev => prev.length === monitorStockLeads.length ? [] : monitorStockLeads.map((l: any) => l.id))} className="rounded" />
+                        </th>
+                        <th className="text-left px-3 py-2">Nome</th>
+                        <th className="text-left px-3 py-2">Telefone</th>
+                        <th className="text-left px-3 py-2">Email</th>
+                        <th className="text-left px-3 py-2">Cliente Origem</th>
+                        <th className="text-left px-3 py-2">Entrada</th>
+                        <th className="text-left px-3 py-2">Expira em</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monitorStockLeads.map((l: any) => {
+                        const expiresIn = l.expires_at ? Math.max(0, Math.ceil((new Date(l.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+                        const isNearExpiry = expiresIn !== null && expiresIn <= 1;
+                        return (
+                          <tr key={l.id} className={`border-b border-border last:border-0 hover:bg-muted/30 ${isNearExpiry ? "bg-warning/5" : ""}`}>
+                            <td className="px-3 py-2">
+                              <input type="checkbox" checked={monitorStockSelected.includes(l.id)} onChange={() => setMonitorStockSelected(prev => prev.includes(l.id) ? prev.filter(x => x !== l.id) : [...prev, l.id])} className="rounded" />
+                            </td>
+                            <td className="px-3 py-2 text-sm font-medium">{l.name}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{l.phone || "—"}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{l.email || "—"}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{(l.stock_client as any)?.name || "—"}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("pt-BR")}</td>
+                            <td className="px-3 py-2">
+                              {expiresIn !== null ? (
+                                <span className={`text-xs flex items-center gap-1 ${isNearExpiry ? "text-warning font-semibold" : "text-muted-foreground"}`}>
+                                  {isNearExpiry && <Clock className="h-3 w-3" />}
+                                  {expiresIn}d
+                                </span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
