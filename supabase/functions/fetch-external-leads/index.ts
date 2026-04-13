@@ -24,14 +24,32 @@ Deno.serve(async (req) => {
     const externalSupabase = createClient(externalUrl, externalKey);
 
     const url = new URL(req.url);
-    const limit = parseInt(url.searchParams.get("limit") || "100");
-    const offset = parseInt(url.searchParams.get("offset") || "0");
-    const status = url.searchParams.get("status");
+    let body: Record<string, unknown> = {};
+
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      try {
+        body = await req.json();
+      } catch {
+        body = {};
+      }
+    }
+
+    const limit = parseInt(String(body.limit ?? url.searchParams.get("limit") ?? "100"));
+    const offset = parseInt(String(body.offset ?? url.searchParams.get("offset") ?? "0"));
+    const status = String(body.status ?? url.searchParams.get("status") ?? "").trim();
+    const ids = Array.isArray(body.ids)
+      ? body.ids.map((value) => String(value)).filter(Boolean)
+      : (url.searchParams.get("ids") || "").split(",").map((value) => value.trim()).filter(Boolean);
 
     let query = externalSupabase
       .from("leads_geral_campanha")
-      .select("*", { count: "exact" })
-      .range(offset, offset + limit - 1);
+      .select("*", { count: "exact" });
+
+    if (ids.length > 0) {
+      query = query.in("ID Lead", ids);
+    } else {
+      query = query.range(offset, offset + limit - 1);
+    }
 
     if (status) {
       query = query.eq("status", status);

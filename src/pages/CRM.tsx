@@ -23,7 +23,19 @@ const stageColumns: { key: LeadStatus; label: string; color: string }[] = [
   { key: "perdido", label: "Perdido", color: "destructive" },
 ];
 
+const extractExternalLeadId = (notes?: string | null) => {
+  const match = notes?.match(/ext_id:([^\s]+)/);
+  return match?.[1] ?? null;
+};
 
+const normalizeLeadSource = (source?: string | null) =>
+  source === "leads_laportec_star5" ? "leads_geral_campanha" : source ?? null;
+
+const toIsoDate = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
 
 const CRM = () => {
   const { role } = useRole();
@@ -76,9 +88,55 @@ const CRM = () => {
   const { data: leads = [] } = useQuery({
     queryKey: ["leads"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("leads").select("*, clients(name)").order("created_at", { ascending: false });
+      const { data: localLeads, error } = await supabase.from("leads").select("*, clients(name)").order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+
+      const baseLeads = (localLeads || []).map((lead: any) => ({
+        ...lead,
+        source: normalizeLeadSource(lead.source),
+      }));
+
+      const externalIds = Array.from(
+        new Set(
+          baseLeads
+            .map((lead: any) => extractExternalLeadId(lead.notes))
+            .filter((value): value is string => Boolean(value))
+        )
+      );
+
+      if (externalIds.length === 0) {
+        return baseLeads;
+      }
+
+      const { data: externalResponse, error: externalError } = await supabase.functions.invoke("fetch-external-leads", {
+        body: { ids: externalIds, limit: externalIds.length },
+      });
+
+      if (externalError) {
+        return baseLeads;
+      }
+
+      const externalById = new Map<string, any>(
+        ((externalResponse as any)?.data || []).map((lead: any) => [String(lead["ID Lead"]), lead])
+      );
+
+      return baseLeads.map((lead: any) => {
+        const externalId = extractExternalLeadId(lead.notes);
+        const externalLead = externalId ? externalById.get(externalId) : null;
+
+        if (!externalLead) return lead;
+
+        return {
+          ...lead,
+          name: externalLead["Nome"] || lead.name,
+          email: externalLead["Email"] || lead.email,
+          phone: externalLead["Telefone"] || lead.phone,
+          financing_type: externalLead["Qual tipo de financiamento"] || lead.financing_type,
+          installment_value: externalLead["Valor das parcelas"] || lead.installment_value,
+          lead_entry_date: toIsoDate(externalLead["Data da Entrada do Lead"]) || lead.lead_entry_date,
+          source: "leads_geral_campanha",
+        };
+      });
     },
   });
 
