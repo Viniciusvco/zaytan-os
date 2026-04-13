@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, Clock, Package, AlertTriangle, XCircle, Users, Zap, ShieldAlert, CalendarIcon, Send } from "lucide-react";
+import { BarChart3, Clock, Package, AlertTriangle, XCircle, Users, Zap, ShieldAlert, CalendarIcon, Send, Eye, RefreshCw } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
