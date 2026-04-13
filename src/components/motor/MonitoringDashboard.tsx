@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, Clock, Package, AlertTriangle, XCircle, Users, Zap, ShieldAlert, CalendarIcon, Send } from "lucide-react";
+import { BarChart3, Clock, Package, AlertTriangle, XCircle, Users, Zap, ShieldAlert, CalendarIcon, Send, Eye, RefreshCw } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -20,6 +20,7 @@ export function MonitoringDashboard({ campaignId }: Props) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedStockLeads, setSelectedStockLeads] = useState<string[]>([]);
   const [targetClient, setTargetClient] = useState("");
+  const [showCrmLeads, setShowCrmLeads] = useState(false);
 
   const selectedDate = datePreset === "ontem" ? subDays(new Date(), 1) : datePreset === "custom" ? customDate : new Date();
   const dateLabel = datePreset === "hoje" ? "Hoje" : datePreset === "ontem" ? "Ontem" : format(customDate, "dd/MM/yyyy");
@@ -65,6 +66,44 @@ export function MonitoringDashboard({ campaignId }: Props) {
       return data;
     },
     enabled: !!campaignId,
+  });
+
+  const { data: crmLeadCounts = [], isLoading: crmLoading, refetch: refetchCrm } = useQuery({
+    queryKey: ["crm-lead-counts", campaignId, format(selectedDate, "yyyy-MM-dd")],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      // Get client IDs in this campaign
+      const { data: ccData } = await supabase.from("campaign_clients")
+        .select("client_id, clients(name)")
+        .eq("campaign_id", campaignId);
+      if (!ccData || ccData.length === 0) return [];
+
+      const clientIds = ccData.map((cc: any) => cc.client_id);
+      
+      // Query leads table for each client, filtered by date
+      const dayStart = new Date(selectedDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(selectedDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const results = await Promise.all(clientIds.map(async (clientId: string) => {
+        const { count } = await supabase.from("leads")
+          .select("*", { count: "exact", head: true })
+          .eq("client_id", clientId)
+          .gte("created_at", dayStart.toISOString())
+          .lte("created_at", dayEnd.toISOString());
+        
+        const clientInfo = ccData.find((cc: any) => cc.client_id === clientId);
+        return {
+          client_id: clientId,
+          client_name: (clientInfo?.clients as any)?.name || "—",
+          total_leads: count || 0,
+        };
+      }));
+
+      return results;
+    },
+    enabled: !!campaignId && showCrmLeads,
   });
 
   const sendStockMut = useMutation({
@@ -224,6 +263,57 @@ export function MonitoringDashboard({ campaignId }: Props) {
           </table>
         </div>
       )}
+
+      {/* CRM Leads per Client */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Eye className="h-4 w-4 text-primary" /> Leads no CRM por Cliente ({dateLabel})
+          </h3>
+          <Button
+            size="sm"
+            variant={showCrmLeads ? "outline" : "default"}
+            className="h-7 text-xs gap-1.5"
+            onClick={() => { setShowCrmLeads(true); refetchCrm(); }}
+            disabled={crmLoading}
+          >
+            <RefreshCw className={`h-3 w-3 ${crmLoading ? "animate-spin" : ""}`} />
+            {showCrmLeads ? "Atualizar" : "Carregar"}
+          </Button>
+        </div>
+        {!showCrmLeads ? (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            Clique em "Carregar" para visualizar a contagem de leads no CRM de cada cliente.
+          </div>
+        ) : crmLoading ? (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">Carregando...</div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border text-xs text-muted-foreground">
+                <th className="text-left px-4 py-2">Cliente</th>
+                <th className="text-right px-4 py-2">Leads no CRM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {crmLeadCounts.map((c: any) => (
+                <tr key={c.client_id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <td className="px-4 py-2.5 text-sm font-medium">{c.client_name}</td>
+                  <td className="px-4 py-2.5 text-sm text-right font-semibold">{c.total_leads}</td>
+                </tr>
+              ))}
+              {crmLeadCounts.length > 0 && (
+                <tr className="bg-muted/20">
+                  <td className="px-4 py-2.5 text-sm font-semibold">Total</td>
+                  <td className="px-4 py-2.5 text-sm text-right font-bold text-primary">
+                    {crmLeadCounts.reduce((sum: number, c: any) => sum + c.total_leads, 0)}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {/* Stock Section */}
       {stockLeads.length > 0 && (
