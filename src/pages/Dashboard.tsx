@@ -5,6 +5,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Navigate } from "react-router-dom";
+import ClientDashboardRanking from "@/components/client/ClientDashboardRanking";
 import {
   DollarSign, TrendingUp, Target, Users, ArrowUp, ArrowDown,
   AlertTriangle, CheckCircle2, Clock, Rocket,
