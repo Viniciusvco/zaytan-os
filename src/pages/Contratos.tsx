@@ -474,6 +474,9 @@ const Contratos = () => {
       });
       if (error) throw error;
       setSyncResult(data);
+      // Auto-refresh monitoring after import
+      refetchMonitoring();
+      refetchMonitorStock();
       if (data?.total_inserted > 0) {
         toast.success(`${data.total_inserted} leads importados! ${data.total_updated > 0 ? `${data.total_updated} atualizados.` : ""}`);
       } else if (data?.total_updated > 0) {
