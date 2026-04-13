@@ -327,7 +327,7 @@ const Contratos = () => {
 
   const monitorClientIds = useMemo(() => distributionPreview.map(d => d.client_id), [distributionPreview]);
 
-  const { data: monitoringData, isLoading: monitorLoading } = useQuery({
+  const { data: monitoringData, isLoading: monitorLoading, refetch: refetchMonitoring, isFetching: monitorFetching } = useQuery({
     queryKey: ["distribution-monitoring", monitorDateRange, monitorClientIds],
     queryFn: async () => {
       if (monitorClientIds.length === 0) {
@@ -735,6 +735,16 @@ const Contratos = () => {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5 px-2.5"
+                  onClick={() => refetchMonitoring()}
+                  disabled={monitorFetching}
+                >
+                  <RefreshCw className={`h-3 w-3 ${monitorFetching ? "animate-spin" : ""}`} />
+                  Atualizar visão
+                </Button>
                 {[
                   { value: "today", label: "Hoje" },
                   { value: "yesterday", label: "Ontem" },
