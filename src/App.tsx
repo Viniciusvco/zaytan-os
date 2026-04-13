@@ -24,6 +24,8 @@ import Academy from "./pages/Academy";
 import Feedbacks from "./pages/Feedbacks";
 import SupportChat from "./pages/SupportChat";
 import MinhaEquipe from "./pages/MinhaEquipe";
+import ClientPerformance from "./pages/ClientPerformance";
+import ClientUsersManagement from "./pages/ClientUsersManagement";
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
