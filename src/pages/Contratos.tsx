@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle, RefreshCw, PieChart, RotateCcw, Eye } from "lucide-react";
+import { FileText, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, FileQuestion, XCircle, RefreshCw, PieChart, RotateCcw, Eye, CalendarIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -303,6 +303,11 @@ const Contratos = () => {
     const now = new Date();
     const todayStr = now.toISOString().split("T")[0];
     if (monitorPeriod === "today") return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
+    if (monitorPeriod === "yesterday") {
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      const yStr = y.toISOString().split("T")[0];
+      return { from: `${yStr}T00:00:00.000Z`, to: `${yStr}T23:59:59.999Z` };
+    }
     if (monitorPeriod === "7d") {
       const d = new Date(now); d.setDate(d.getDate() - 7);
       return { from: d.toISOString(), to: now.toISOString() };
@@ -310,6 +315,10 @@ const Contratos = () => {
     if (monitorPeriod === "30d") {
       const d = new Date(now); d.setDate(d.getDate() - 30);
       return { from: d.toISOString(), to: now.toISOString() };
+    }
+    if (monitorPeriod.startsWith("custom:")) {
+      const customDateStr = monitorPeriod.replace("custom:", "");
+      return { from: `${customDateStr}T00:00:00.000Z`, to: `${customDateStr}T23:59:59.999Z` };
     }
     return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
   }, [monitorPeriod]);
@@ -696,15 +705,49 @@ const Contratos = () => {
                   </p>
                 </div>
               </div>
-              <select
-                className="h-8 px-3 rounded-lg bg-muted border-0 text-xs"
-                value={monitorPeriod}
-                onChange={e => setMonitorPeriod(e.target.value)}
-              >
-                <option value="today">Hoje</option>
-                <option value="7d">Últimos 7 dias</option>
-                <option value="30d">Últimos 30 dias</option>
-              </select>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { value: "today", label: "Hoje" },
+                  { value: "yesterday", label: "Ontem" },
+                  { value: "7d", label: "7 dias" },
+                  { value: "30d", label: "30 dias" },
+                ].map(opt => (
+                  <Button
+                    key={opt.value}
+                    variant={monitorPeriod === opt.value ? "default" : "outline"}
+                    size="sm"
+                    className="h-7 text-xs px-2.5"
+                    onClick={() => setMonitorPeriod(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={monitorPeriod.startsWith("custom:") ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs gap-1.5 px-2.5"
+                    >
+                      <CalendarIcon className="h-3 w-3" />
+                      {monitorPeriod.startsWith("custom:") 
+                        ? new Date(monitorPeriod.replace("custom:", "")).toLocaleDateString("pt-BR") 
+                        : "Data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={monitorPeriod.startsWith("custom:") ? new Date(monitorPeriod.replace("custom:", "")) : undefined}
+                      onSelect={(d) => {
+                        if (d) setMonitorPeriod(`custom:${d.toISOString().split("T")[0]}`);
+                      }}
+                      disabled={(d) => d > new Date()}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             {monitorLoading ? (
