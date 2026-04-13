@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { action, campaign_id, leads, lead_queue_ids, target_client_id, performed_by } = body;
+    const { action, campaign_id, leads, lead_queue_ids, target_client_id, performed_by, date } = body;
 
     // Action: ingest — add leads to queue with dedup check
     if (action === "ingest") {
@@ -262,9 +262,7 @@ Deno.serve(async (req) => {
     if (action === "metrics") {
       if (!campaign_id) return jsonRes({ error: "campaign_id required" }, 400);
 
-      const today = new Date().toISOString().split("T")[0];
-      const todayStart = `${today}T00:00:00.000Z`;
-      const todayEnd = `${today}T23:59:59.999Z`;
+      const selectedRange = getDayRange(date);
 
       const [
         { count: totalToday },
@@ -275,12 +273,13 @@ Deno.serve(async (req) => {
         { count: processingCount },
         { data: lastDist },
         { data: clientMetrics },
+        { data: clientDistributionLogs },
       ] = await Promise.all([
         supabase.from("lead_queue").select("*", { count: "exact", head: true })
-          .eq("campaign_id", campaign_id).gte("created_at", todayStart).lte("created_at", todayEnd),
+          .eq("campaign_id", campaign_id).gte("created_at", selectedRange.from).lte("created_at", selectedRange.to),
         supabase.from("lead_queue").select("*", { count: "exact", head: true })
           .eq("campaign_id", campaign_id).eq("status", "distribuido")
-          .gte("distributed_at", todayStart).lte("distributed_at", todayEnd),
+          .gte("distributed_at", selectedRange.from).lte("distributed_at", selectedRange.to),
         supabase.from("lead_queue").select("stock_client_id, assigned_client_id")
           .eq("campaign_id", campaign_id).eq("status", "estoque"),
         supabase.from("lead_queue").select("*", { count: "exact", head: true })
@@ -293,7 +292,16 @@ Deno.serve(async (req) => {
           .eq("campaign_id", campaign_id).order("created_at", { ascending: false }).limit(1),
         supabase.from("campaign_clients").select("*, clients(name)")
           .eq("campaign_id", campaign_id),
+        supabase.from("distribution_logs").select("client_id, created_at")
+          .eq("campaign_id", campaign_id)
+          .gte("created_at", selectedRange.from)
+          .lte("created_at", selectedRange.to),
       ]);
+
+      const distributedByClient = new Map<string, number>();
+      for (const log of clientDistributionLogs || []) {
+        distributedByClient.set(log.client_id, (distributedByClient.get(log.client_id) || 0) + 1);
+      }
 
       return jsonRes({
         total_leads_today: totalToday || 0,
@@ -309,7 +317,7 @@ Deno.serve(async (req) => {
           weight_percent: cc.weight_percent,
           weight_override: cc.weight_override,
           daily_limit: cc.daily_limit,
-          leads_received_today: cc.leads_received_today,
+          leads_received_today: distributedByClient.get(cc.client_id) || 0,
           accumulated_balance: cc.accumulated_balance,
           paused: cc.paused,
           investment: cc.investment_amount,
@@ -354,4 +362,21 @@ async function checkDuplicate(supabase: any, campaignId: string, phone?: string,
 
   const { count } = await query;
   return (count || 0) > 0;
+}
+
+function getDayRange(date?: string) {
+  const baseDate = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? new Date(`${date}T12:00:00`)
+    : new Date();
+
+  const from = new Date(baseDate);
+  from.setHours(0, 0, 0, 0);
+
+  const to = new Date(baseDate);
+  to.setHours(23, 59, 59, 999);
+
+  return {
+    from: from.toISOString(),
+    to: to.toISOString(),
+  };
 }

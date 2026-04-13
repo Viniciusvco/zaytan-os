@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useKanbanDnD } from "@/hooks/use-kanban-dnd";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { getInclusiveDayBoundsFromDateStrings, isLeadWithinBounds } from "@/lib/lead-date";
 
 import { toast } from "sonner";
 
@@ -165,6 +166,11 @@ const CRM = () => {
 
   // Filter leads
   const activeDateRange = getDateRange(datePreset);
+  const activeDateBounds = useMemo(() => {
+    if (!activeDateRange.from || !activeDateRange.to) return null;
+    return getInclusiveDayBoundsFromDateStrings(activeDateRange.from, activeDateRange.to);
+  }, [activeDateRange.from, activeDateRange.to]);
+
   const filteredLeads = useMemo(() => {
     return leads.filter((l: any) => {
       if (clientFilter !== "all" && l.client_id !== clientFilter) return false;
@@ -178,17 +184,12 @@ const CRM = () => {
           (l.seller_tag || "").toLowerCase().includes(q);
         if (!match) return false;
       }
-      if (activeDateRange.from) {
-        const entryDate = l.lead_entry_date || l.created_at;
-        if (entryDate < activeDateRange.from) return false;
-      }
-      if (activeDateRange.to) {
-        const entryDate = l.lead_entry_date || l.created_at;
-        if (entryDate > activeDateRange.to + "T23:59:59") return false;
+      if (activeDateBounds && !isLeadWithinBounds(l, activeDateBounds.from, activeDateBounds.to)) {
+        return false;
       }
       return true;
     });
-  }, [leads, clientFilter, sellerFilter, sourceFilter, searchQuery, activeDateRange.from, activeDateRange.to]);
+  }, [leads, clientFilter, sellerFilter, sourceFilter, searchQuery, activeDateBounds]);
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status, value, loss_reason, notes }: { id: string; status: LeadStatus; value?: number; loss_reason?: string; notes?: string }) => {

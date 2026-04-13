@@ -169,19 +169,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Separate new leads from existing ones
-    const newExternalLeads = allExternalLeads.filter(lead => {
-      const extId = String(lead["ID Lead"]);
-      return !allSyncedExtIds.has(extId);
+    const allowMultiClientDuplicates = shouldAllowMultiClientDuplicates({
+      clientIds,
+      clientInvestments,
+      distributionConfig,
+      percentOverrides,
     });
 
-    const existingExternalLeads = allExternalLeads.filter(lead => {
-      const extId = String(lead["ID Lead"]);
-      return allSyncedExtIds.has(extId);
-    });
+    const availableExternalLeads = allowMultiClientDuplicates
+      ? allExternalLeads.filter((lead) => {
+          const extId = String(lead["ID Lead"]);
+          return clientIds.some((cid) => !existingLeadsByClient[cid].has(extId));
+        })
+      : allExternalLeads.filter((lead) => !allSyncedExtIds.has(String(lead["ID Lead"])));
 
-    const leadsToDistribute = newExternalLeads;
-    const totalNewLeads = leadsToDistribute.length;
+    const totalNewLeads = availableExternalLeads.length;
 
     const distributionPlan = buildDistributionPlan({
       clientIds,
@@ -197,34 +199,43 @@ Deno.serve(async (req) => {
     const insertedCount: Record<string, number> = {};
 
     if (totalNewLeads > 0 && distributionPlan.totalPlanned > 0) {
-      const clientQueues = { ...distributionPlan.allocations };
-      for (const lead of leadsToDistribute.slice(0, distributionPlan.totalPlanned)) {
-        let bestClient: string | null = null;
-        let bestRemaining = -1;
+      if (distributionPlan.allowMultiClientDuplicates) {
         for (const cid of clientIds) {
-          if ((clientQueues[cid] || 0) > bestRemaining) {
-            bestRemaining = clientQueues[cid] || 0;
-            bestClient = cid;
+          let remaining = distributionPlan.allocations[cid] || 0;
+          if (remaining <= 0) continue;
+
+          for (const lead of allExternalLeads) {
+            if (remaining <= 0) break;
+
+            const extId = String(lead["ID Lead"]);
+            if (existingLeadsByClient[cid].has(extId)) continue;
+
+            leadsToInsert.push(buildLeadInsertPayload(lead, cid));
+            existingLeadsByClient[cid].set(extId, { id: `pending:${extId}`, status: "novo" });
+            insertedCount[cid] = (insertedCount[cid] || 0) + 1;
+            remaining--;
           }
         }
+      } else {
+        const clientQueues = { ...distributionPlan.allocations };
+        for (const lead of availableExternalLeads.slice(0, distributionPlan.totalPlanned)) {
+          let bestClient: string | null = null;
+          let bestRemaining = -1;
+          for (const cid of clientIds) {
+            if ((clientQueues[cid] || 0) > bestRemaining) {
+              bestRemaining = clientQueues[cid] || 0;
+              bestClient = cid;
+            }
+          }
 
-        if (!bestClient || bestRemaining <= 0) break;
-        clientQueues[bestClient]--;
+          if (!bestClient || bestRemaining <= 0) break;
+          clientQueues[bestClient]--;
 
-        const extId = String(lead["ID Lead"]);
-        leadsToInsert.push({
-          client_id: bestClient,
-          name: lead["Nome"] || "Lead sem nome",
-          email: lead["Email"] || null,
-          phone: lead["Telefone"] || null,
-          source: "leads_geral_campanha",
-          status: "novo",
-          notes: `ext_id:${extId}`,
-          financing_type: lead["Qual tipo de financiamento"] || null,
-          installment_value: lead["Valor das parcelas"] || null,
-          lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
-        });
-        insertedCount[bestClient] = (insertedCount[bestClient] || 0) + 1;
+          const extId = String(lead["ID Lead"]);
+          leadsToInsert.push(buildLeadInsertPayload(lead, bestClient));
+          allSyncedExtIds.add(extId);
+          insertedCount[bestClient] = (insertedCount[bestClient] || 0) + 1;
+        }
       }
     }
 
@@ -233,7 +244,7 @@ Deno.serve(async (req) => {
     const skippedCount: Record<string, number> = {};
 
     if (importMode === "all") {
-      for (const lead of existingExternalLeads) {
+      for (const lead of allExternalLeads) {
         const extId = String(lead["ID Lead"]);
         for (const cid of clientIds) {
           const existing = existingLeadsByClient[cid].get(extId);
@@ -297,8 +308,8 @@ Deno.serve(async (req) => {
         total_new_leads: totalNewLeads,
         total_inserted: totalInserted,
         total_updated: totalUpdated,
-      total_unassigned: distributionPlan.unassigned,
-      distribution_mode: distributionPlan.mode,
+        total_unassigned: Math.max(distributionPlan.totalPlanned - totalInserted, 0),
+        distribution_mode: distributionPlan.mode,
         distribution,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -450,16 +461,66 @@ function buildDistributionPlan({
     const row = configByClient.get(clientId);
     const overrideValue = percentOverrides?.[clientId];
     const baseWeight = overrideValue ?? row?.weight_percent ?? 0;
-    return { clientId, weight: Math.max(baseWeight, 0), max: Number.POSITIVE_INFINITY };
+    return { clientId, weight: Math.max(baseWeight, 0), max: totalNewLeads };
   });
 
-  const allocations = allocateByWeights(percentageWeights, totalNewLeads);
+  const positiveWeights = percentageWeights.filter((item) => item.weight > 0);
+  const rawWeightTotal = positiveWeights.reduce((sum, item) => sum + item.weight, 0);
+  const allowMultiClientDuplicates = positiveWeights.length > 1 && rawWeightTotal > 100;
+  const totalPlanned = allowMultiClientDuplicates
+    ? Math.ceil((totalNewLeads * rawWeightTotal) / 100)
+    : totalNewLeads;
+
+  const allocations = allocateByWeights(percentageWeights, totalPlanned);
   return {
     allocations,
-    mode: "percentage" as const,
-    totalPlanned: totalNewLeads,
+    mode: allowMultiClientDuplicates ? "percentage_duplicates" as const : "percentage" as const,
+    totalPlanned,
     unassigned: 0,
     percentages: normalizeWeights(percentageWeights),
+    allowMultiClientDuplicates,
+  };
+}
+
+function shouldAllowMultiClientDuplicates({
+  clientIds,
+  clientInvestments,
+  distributionConfig,
+  percentOverrides,
+}: {
+  clientIds: string[];
+  clientInvestments: ClientInvestmentMap;
+  distributionConfig: DistributionConfigRow[];
+  percentOverrides?: Record<string, number>;
+}) {
+  const configByClient = new Map(distributionConfig.map((row) => [row.client_id, row]));
+  if (distributionConfig.some((row) => row.daily_limit !== null)) return false;
+
+  const positiveWeights = clientIds
+    .map((clientId) => {
+      const overrideValue = percentOverrides?.[clientId];
+      const configuredWeight = overrideValue ?? configByClient.get(clientId)?.weight_percent ?? calculateAutoPercent(clientId, clientIds, clientInvestments);
+      return Math.max(configuredWeight, 0);
+    })
+    .filter((weight) => weight > 0);
+
+  return positiveWeights.length > 1 && positiveWeights.reduce((sum, weight) => sum + weight, 0) > 100;
+}
+
+function buildLeadInsertPayload(lead: any, clientId: string) {
+  const extId = String(lead["ID Lead"]);
+
+  return {
+    client_id: clientId,
+    name: lead["Nome"] || "Lead sem nome",
+    email: lead["Email"] || null,
+    phone: lead["Telefone"] || null,
+    source: "leads_geral_campanha",
+    status: "novo",
+    notes: `ext_id:${extId}`,
+    financing_type: lead["Qual tipo de financiamento"] || null,
+    installment_value: lead["Valor das parcelas"] || null,
+    lead_entry_date: lead["Data da Entrada do Lead"] ? new Date(lead["Data da Entrada do Lead"]).toISOString() : null,
   };
 }
 
@@ -558,9 +619,14 @@ function allocateByWeights(
 }
 
 function getTodayRange() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date();
+  const from = new Date(today);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(today);
+  to.setHours(23, 59, 59, 999);
+
   return {
-    from: `${today}T00:00:00.000Z`,
-    to: `${today}T23:59:59.999Z`,
+    from: from.toISOString(),
+    to: to.toISOString(),
   };
 }
