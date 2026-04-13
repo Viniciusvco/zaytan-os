@@ -9,4 +9,5 @@ Dark mode toggle available. shadcn/ui components.
 
 ## Memories
 - [Architecture](mem://features/architecture) — Multi-tenant SaaS structure, role-based views, module list
-- [Motor Revisional](mem://features/motor-revisional) — Lead distribution engine: campaigns, proportional allocation, stock, dedup, audit
+- [Client Roles](mem://features/client-roles) — Gerente/Supervisor/Vendedor hierarchy, visibility rules, vendor_goals
+- [Motor Revisional](mem://features/motor-revisional) — Motor revisional feature details

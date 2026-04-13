@@ -116,6 +116,7 @@ export type Database = {
           client_role: Database["public"]["Enums"]["client_role_type"]
           created_at: string
           id: string
+          supervisor_id: string | null
           updated_at: string
           user_id: string
         }
@@ -124,6 +125,7 @@ export type Database = {
           client_role?: Database["public"]["Enums"]["client_role_type"]
           created_at?: string
           id?: string
+          supervisor_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -132,6 +134,7 @@ export type Database = {
           client_role?: Database["public"]["Enums"]["client_role_type"]
           created_at?: string
           id?: string
+          supervisor_id?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -141,6 +144,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_user_roles_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -892,6 +902,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vendor_goals: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          month_ref: string
+          target_value: number
+          updated_at: string
+          vendedor_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          month_ref: string
+          target_value?: number
+          updated_at?: string
+          vendedor_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          month_ref?: string
+          target_value?: number
+          updated_at?: string
+          vendedor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_goals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_goals_vendedor_id_fkey"
+            columns: ["vendedor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

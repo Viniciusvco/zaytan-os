@@ -5,6 +5,7 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ComingSoon } from "@/components/ComingSoon";
 import { Navigate } from "react-router-dom";
+import ClientDashboardRanking from "@/components/client/ClientDashboardRanking";
 import {
   DollarSign, TrendingUp, Target, Users, ArrowUp, ArrowDown,
   AlertTriangle, CheckCircle2, Clock, Rocket,
@@ -169,7 +170,9 @@ const Dashboard = () => {
   // Use profile.role as source of truth to avoid race condition with RoleContext sync
   const effectiveRole = profile.role === "cliente" ? "cliente" : role;
 
-  if (effectiveRole === "cliente") return <ClientDashboard onboardingComplete={onboardingComplete} />;
+  if (effectiveRole === "cliente") {
+    return <ClientDashboardRanking />;
+  }
   if (effectiveRole === "colaborador") {
     return (
       <ComingSoon>
