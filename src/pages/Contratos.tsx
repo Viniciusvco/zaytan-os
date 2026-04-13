@@ -395,10 +395,50 @@ const Contratos = () => {
         lastUpdate,
         totalCurrent: allCurrentLeads.length,
         totalDistributed: allDistributedLogs.length,
+        fetchedAt: new Date().toISOString(),
       };
     },
     enabled: monitorClientIds.length > 0,
     refetchInterval: 30000,
+  });
+
+  // Stock leads for distribution monitoring
+  const [monitorStockSelected, setMonitorStockSelected] = useState<string[]>([]);
+  const [monitorStockTarget, setMonitorStockTarget] = useState("");
+
+  const { data: monitorStockLeads = [], refetch: refetchMonitorStock } = useQuery({
+    queryKey: ["monitor-stock-leads", distributionConfig?.campaignId],
+    queryFn: async () => {
+      if (!distributionConfig?.campaignId) return [];
+      const { data, error } = await supabase.from("lead_queue")
+        .select("*, stock_client:stock_client_id(name)")
+        .eq("campaign_id", distributionConfig.campaignId)
+        .eq("status", "estoque")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!distributionConfig?.campaignId,
+  });
+
+  const sendMonitorStockMut = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("campaign-distribute", {
+        body: { action: "send_stock", lead_queue_ids: monitorStockSelected, target_client_id: monitorStockTarget },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["monitor-stock-leads"] });
+      qc.invalidateQueries({ queryKey: ["distribution-monitoring"] });
+      qc.invalidateQueries({ queryKey: ["stock-leads"] });
+      qc.invalidateQueries({ queryKey: ["motor-metrics"] });
+      setMonitorStockSelected([]);
+      setMonitorStockTarget("");
+      toast.success(`${data.sent} lead(s) enviado(s) do estoque`);
+    },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const handleResetDistribution = () => {
