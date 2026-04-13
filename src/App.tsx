@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RoleProvider } from "@/contexts/RoleContext";
+import { ClientRoleProvider } from "@/contexts/ClientRoleContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -48,28 +49,32 @@ function ProtectedRoutes() {
 
   return (
     <RoleProvider>
-      <AppLayout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clientes" element={<Clientes />} />
-          <Route path="/produtos" element={<Produtos />} />
-          <Route path="/contratos" element={<Contratos />} />
-          <Route path="/financeiro" element={<Financeiro />} />
-          <Route path="/comercial" element={<Comercial />} />
-          <Route path="/performance" element={<Performance />} />
-          <Route path="/demandas" element={<Demandas />} />
-          <Route path="/crm" element={<CRM />} />
-          <Route path="/visao-contratos" element={<VisaoContratos />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/equipe" element={<Equipe />} />
-          <Route path="/usuarios" element={<Usuarios />} />
-          <Route path="/academy" element={<Academy />} />
-          <Route path="/feedbacks" element={<Feedbacks />} />
-          <Route path="/suporte" element={<SupportChat />} />
-          <Route path="/minha-equipe" element={<MinhaEquipe />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </AppLayout>
+      <ClientRoleProvider>
+        <AppLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clientes" element={<Clientes />} />
+            <Route path="/produtos" element={<Produtos />} />
+            <Route path="/contratos" element={<Contratos />} />
+            <Route path="/financeiro" element={<Financeiro />} />
+            <Route path="/comercial" element={<Comercial />} />
+            <Route path="/performance" element={<Performance />} />
+            <Route path="/demandas" element={<Demandas />} />
+            <Route path="/crm" element={<CRM />} />
+            <Route path="/visao-contratos" element={<VisaoContratos />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/equipe" element={<Equipe />} />
+            <Route path="/usuarios" element={<Usuarios />} />
+            <Route path="/academy" element={<Academy />} />
+            <Route path="/feedbacks" element={<Feedbacks />} />
+            <Route path="/suporte" element={<SupportChat />} />
+            <Route path="/minha-equipe" element={<MinhaEquipe />} />
+            <Route path="/client-performance" element={<ClientPerformance />} />
+            <Route path="/client-users" element={<ClientUsersManagement />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AppLayout>
+      </ClientRoleProvider>
     </RoleProvider>
   );
 }
