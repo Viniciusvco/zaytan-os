@@ -113,18 +113,18 @@ Deno.serve(async (req) => {
     };
 
     const fakeLeads = [
-      { name: "João Silva", phone: "(11) 98765-4321", email: "joao@email.com", value: null, status: "novo", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.200", source: "leads_laportec_star5", laudo_data: sampleLaudo1 },
-      { name: "Maria Oliveira", phone: "(11) 91234-5678", email: "maria@email.com", value: null, status: "contatado", seller_tag: "Carlos Vendas", financing_type: "Consórcio", installment_value: "R$ 2.500", source: "leads_laportec_star5" },
-      { name: "Pedro Santos", phone: "(21) 99876-5432", email: "pedro@email.com", value: null, status: "qualificado", seller_tag: "Ana Comercial", financing_type: "Financiamento", installment_value: "R$ 1.800", source: "leads_laportec_star5", laudo_data: sampleLaudo2 },
-      { name: "Ana Costa", phone: "(21) 98765-1234", email: "ana.costa@email.com", value: null, status: "qualificado", seller_tag: "Ana Comercial", financing_type: "À vista", installment_value: null, source: "leads_laportec_star5" },
-      { name: "Lucas Ferreira", phone: "(31) 99999-8888", email: "lucas@email.com", value: 2500, status: "fechado", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.500", source: "leads_laportec_star5", laudo_data: sampleLaudo3 },
-      { name: "Fernanda Lima", phone: "(31) 91111-2222", email: "fernanda@email.com", value: null, status: "perdido", seller_tag: "Ana Comercial", loss_reason: "concorrente", financing_type: "Consórcio", installment_value: "R$ 900", source: "leads_laportec_star5" },
+      { name: "João Silva", phone: "(11) 98765-4321", email: "joao@email.com", value: null, status: "novo", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.200", source: "leads_geral_campanha", laudo_data: sampleLaudo1 },
+      { name: "Maria Oliveira", phone: "(11) 91234-5678", email: "maria@email.com", value: null, status: "contatado", seller_tag: "Carlos Vendas", financing_type: "Consórcio", installment_value: "R$ 2.500", source: "leads_geral_campanha" },
+      { name: "Pedro Santos", phone: "(21) 99876-5432", email: "pedro@email.com", value: null, status: "qualificado", seller_tag: "Ana Comercial", financing_type: "Financiamento", installment_value: "R$ 1.800", source: "leads_geral_campanha", laudo_data: sampleLaudo2 },
+      { name: "Ana Costa", phone: "(21) 98765-1234", email: "ana.costa@email.com", value: null, status: "qualificado", seller_tag: "Ana Comercial", financing_type: "À vista", installment_value: null, source: "leads_geral_campanha" },
+      { name: "Lucas Ferreira", phone: "(31) 99999-8888", email: "lucas@email.com", value: 2500, status: "fechado", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.500", source: "leads_geral_campanha", laudo_data: sampleLaudo3 },
+      { name: "Fernanda Lima", phone: "(31) 91111-2222", email: "fernanda@email.com", value: null, status: "perdido", seller_tag: "Ana Comercial", loss_reason: "concorrente", financing_type: "Consórcio", installment_value: "R$ 900", source: "leads_geral_campanha" },
       { name: "Roberto Almeida", phone: "(11) 93333-4444", email: "roberto@email.com", value: null, status: "novo", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.100", source: "import_Fornecedor X" },
       { name: "Juliana Ramos", phone: "(21) 95555-6666", email: "juliana@email.com", value: null, status: "contatado", seller_tag: "Ana Comercial", financing_type: "Consórcio", installment_value: "R$ 3.200", source: "import_Fornecedor Y" },
-      { name: "Thiago Mendes", phone: "(11) 97777-8888", email: "thiago@email.com", value: null, status: "perdido", seller_tag: "Carlos Vendas", loss_reason: "sem_interesse", financing_type: "Financiamento", installment_value: "R$ 800", source: "leads_laportec_star5" },
-      { name: "Camila Barbosa", phone: "(31) 96666-5555", email: "camila@email.com", value: null, status: "proposta", seller_tag: "Ana Comercial", financing_type: "À vista", installment_value: null, source: "leads_laportec_star5" },
-      { name: "Diego Nascimento", phone: "(11) 94444-3333", email: "diego@email.com", value: null, status: "proposta", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.600", source: "leads_laportec_star5" },
-      { name: "Patrícia Souza", phone: "(21) 92222-1111", email: "patricia@email.com", value: null, status: "perdido", seller_tag: "Ana Comercial", loss_reason: "nao_atende", financing_type: "Consórcio", installment_value: "R$ 1.000", source: "leads_laportec_star5" },
+      { name: "Thiago Mendes", phone: "(11) 97777-8888", email: "thiago@email.com", value: null, status: "perdido", seller_tag: "Carlos Vendas", loss_reason: "sem_interesse", financing_type: "Financiamento", installment_value: "R$ 800", source: "leads_geral_campanha" },
+      { name: "Camila Barbosa", phone: "(31) 96666-5555", email: "camila@email.com", value: null, status: "proposta", seller_tag: "Ana Comercial", financing_type: "À vista", installment_value: null, source: "leads_geral_campanha" },
+      { name: "Diego Nascimento", phone: "(11) 94444-3333", email: "diego@email.com", value: null, status: "proposta", seller_tag: "Carlos Vendas", financing_type: "Financiamento", installment_value: "R$ 1.600", source: "leads_geral_campanha" },
+      { name: "Patrícia Souza", phone: "(21) 92222-1111", email: "patricia@email.com", value: null, status: "perdido", seller_tag: "Ana Comercial", loss_reason: "nao_atende", financing_type: "Consórcio", installment_value: "R$ 1.000", source: "leads_geral_campanha" },
     ];
 
     const leadsToInsert = fakeLeads.map((lead) => ({

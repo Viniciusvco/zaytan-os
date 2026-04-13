@@ -297,14 +297,14 @@ const CRM = () => {
 
   const formatSource = (source: string | null) => {
     if (!source) return "—";
-    if (source === "leads_laportec_star5") return "Leads Zaytan";
+    if (source === "leads_geral_campanha") return "Leads Zaytan";
     if (source.startsWith("import_")) return `Leads ${source.replace("import_", "")}`;
     return source;
   };
 
   const getSourceTag = (source: string | null) => {
     if (!source) return null;
-    if (source === "leads_laportec_star5") return { label: "Leads Zaytan", className: "bg-primary/10 text-primary" };
+    if (source === "leads_geral_campanha") return { label: "Leads Zaytan", className: "bg-primary/10 text-primary" };
     if (source.startsWith("import_")) {
       const name = source.replace("import_", "");
       // Different colors per fornecedor
