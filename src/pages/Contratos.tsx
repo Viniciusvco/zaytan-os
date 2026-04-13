@@ -330,44 +330,71 @@ const Contratos = () => {
   const { data: monitoringData, isLoading: monitorLoading } = useQuery({
     queryKey: ["distribution-monitoring", monitorDateRange, monitorClientIds],
     queryFn: async () => {
-      if (monitorClientIds.length === 0) return { clients: [], lastUpdate: null, total: 0 };
+      if (monitorClientIds.length === 0) {
+        return { clients: [], lastUpdate: null, totalCurrent: 0, totalDistributed: 0 };
+      }
 
-      // Use lead_entry_date (actual lead arrival date), not created_at (import date)
-      let allLeads: Array<{ client_id: string; lead_entry_date: string | null; created_at: string }> = [];
-      let from = 0;
+      let allCurrentLeads: Array<{ client_id: string; lead_entry_date: string | null; created_at: string }> = [];
+      let leadsFrom = 0;
       const pageSize = 1000;
+
       while (true) {
-        const { data: batch } = await supabase
+        const { data: batch, error } = await supabase
           .from("leads")
           .select("client_id, lead_entry_date, created_at")
           .in("client_id", monitorClientIds)
-          .eq("source", "leads_geral_campanha")
-          .gte("lead_entry_date", monitorDateRange.from)
-          .lte("lead_entry_date", monitorDateRange.to)
-          .range(from, from + pageSize - 1);
+          .or(`and(lead_entry_date.gte.${monitorDateRange.from},lead_entry_date.lte.${monitorDateRange.to}),and(lead_entry_date.is.null,created_at.gte.${monitorDateRange.from},created_at.lte.${monitorDateRange.to})`)
+          .range(leadsFrom, leadsFrom + pageSize - 1);
+        if (error) throw error;
         if (!batch || batch.length === 0) break;
-        allLeads = allLeads.concat(batch);
+        allCurrentLeads = allCurrentLeads.concat(batch);
         if (batch.length < pageSize) break;
-        from += pageSize;
+        leadsFrom += pageSize;
       }
 
-      const countByClient: Record<string, number> = {};
+      let allDistributedLogs: Array<{ client_id: string; created_at: string }> = [];
+      let logsFrom = 0;
+      while (true) {
+        const { data: batch, error } = await supabase
+          .from("distribution_logs")
+          .select("client_id, created_at")
+          .in("client_id", monitorClientIds)
+          .gte("created_at", monitorDateRange.from)
+          .lte("created_at", monitorDateRange.to)
+          .range(logsFrom, logsFrom + pageSize - 1);
+        if (error) throw error;
+        if (!batch || batch.length === 0) break;
+        allDistributedLogs = allDistributedLogs.concat(batch);
+        if (batch.length < pageSize) break;
+        logsFrom += pageSize;
+      }
+
+      const currentCountByClient: Record<string, number> = {};
+      const distributedCountByClient: Record<string, number> = {};
       let lastUpdate: string | null = null;
-      for (const l of allLeads) {
-        countByClient[l.client_id] = (countByClient[l.client_id] || 0) + 1;
+
+      for (const l of allCurrentLeads) {
+        currentCountByClient[l.client_id] = (currentCountByClient[l.client_id] || 0) + 1;
         const ts = l.lead_entry_date || l.created_at;
         if (!lastUpdate || ts > lastUpdate) lastUpdate = ts;
+      }
+
+      for (const log of allDistributedLogs) {
+        distributedCountByClient[log.client_id] = (distributedCountByClient[log.client_id] || 0) + 1;
+        if (!lastUpdate || log.created_at > lastUpdate) lastUpdate = log.created_at;
       }
 
       return {
         clients: distributionPreview.map(d => ({
           client_id: d.client_id,
           name: d.name,
-          count: countByClient[d.client_id] || 0,
+          currentCount: currentCountByClient[d.client_id] || 0,
+          distributedCount: distributedCountByClient[d.client_id] || 0,
           dailyLimit: d.dailyLimit,
         })),
         lastUpdate,
-        total: allLeads.length,
+        totalCurrent: allCurrentLeads.length,
+        totalDistributed: allDistributedLogs.length,
       };
     },
     enabled: monitorClientIds.length > 0,
@@ -700,7 +727,7 @@ const Contratos = () => {
                 <div>
                   <h3 className="text-sm font-semibold">Monitoramento de Distribuição</h3>
                   <p className="text-xs text-muted-foreground">
-                    Leads distribuídos por cliente
+                    Quantidade atual no CRM e distribuição por cliente, pela data de entrada
                     {monitoringData?.lastUpdate && (
                       <> · Última atualização: <span className="font-medium">{new Date(monitoringData.lastUpdate).toLocaleString("pt-BR")}</span></>
                     )}
@@ -758,18 +785,20 @@ const Contratos = () => {
               <div className="text-center py-6 text-muted-foreground text-sm">Nenhum dado de distribuição no período selecionado.</div>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-4 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
+                <div className="grid grid-cols-5 gap-2 text-xs font-medium text-muted-foreground pb-2 border-b border-border">
                   <span>Cliente</span>
-                  <span className="text-right">Leads Distribuídos</span>
+                  <span className="text-right">Atual no CRM</span>
+                  <span className="text-right">Distribuídos</span>
                   <span className="text-right">Limite Diário</span>
                   <span>Progresso</span>
                 </div>
                 {monitoringData.clients.map((c: any) => {
-                  const limitPct = c.dailyLimit ? Math.min((c.count / c.dailyLimit) * 100, 100) : 0;
+                  const limitPct = c.dailyLimit ? Math.min((c.currentCount / c.dailyLimit) * 100, 100) : 0;
                   return (
-                    <div key={c.client_id} className="grid grid-cols-4 gap-2 items-center">
+                    <div key={c.client_id} className="grid grid-cols-5 gap-2 items-center">
                       <span className="text-sm font-medium truncate">{c.name}</span>
-                      <span className="text-sm text-right font-semibold">{c.count}</span>
+                      <span className="text-sm text-right font-semibold">{c.currentCount}</span>
+                      <span className="text-sm text-right text-muted-foreground">{c.distributedCount}</span>
                       <span className="text-sm text-right text-muted-foreground">{c.dailyLimit ?? "∞"}</span>
                       <div>
                         {c.dailyLimit ? (
@@ -787,8 +816,11 @@ const Contratos = () => {
                   );
                 })}
                 <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <span className="text-xs font-semibold text-muted-foreground">Total de leads no período</span>
-                  <span className="text-sm font-bold">{monitoringData.total}</span>
+                  <span className="text-xs font-semibold text-muted-foreground">Totais no período</span>
+                  <div className="flex items-center gap-4 text-sm font-bold">
+                    <span>CRM: {monitoringData.totalCurrent}</span>
+                    <span>Distribuídos: {monitoringData.totalDistributed}</span>
+                  </div>
                 </div>
               </div>
             )}
