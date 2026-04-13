@@ -135,7 +135,7 @@ export function MonitoringDashboard({ campaignId }: Props) {
         <div className="bg-card border border-border rounded-xl overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" /> Distribuição por Cliente (Hoje)
+              <BarChart3 className="h-4 w-4 text-primary" /> Distribuição por Cliente ({dateLabel})
             </h3>
           </div>
           <table className="w-full">
