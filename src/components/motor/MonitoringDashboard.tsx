@@ -264,6 +264,57 @@ export function MonitoringDashboard({ campaignId }: Props) {
         </div>
       )}
 
+      {/* CRM Leads per Client */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Eye className="h-4 w-4 text-primary" /> Leads no CRM por Cliente ({dateLabel})
+          </h3>
+          <Button
+            size="sm"
+            variant={showCrmLeads ? "outline" : "default"}
+            className="h-7 text-xs gap-1.5"
+            onClick={() => { setShowCrmLeads(true); refetchCrm(); }}
+            disabled={crmLoading}
+          >
+            <RefreshCw className={`h-3 w-3 ${crmLoading ? "animate-spin" : ""}`} />
+            {showCrmLeads ? "Atualizar" : "Carregar"}
+          </Button>
+        </div>
+        {!showCrmLeads ? (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+            Clique em "Carregar" para visualizar a contagem de leads no CRM de cada cliente.
+          </div>
+        ) : crmLoading ? (
+          <div className="px-4 py-8 text-center text-xs text-muted-foreground">Carregando...</div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-border text-xs text-muted-foreground">
+                <th className="text-left px-4 py-2">Cliente</th>
+                <th className="text-right px-4 py-2">Leads no CRM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {crmLeadCounts.map((c: any) => (
+                <tr key={c.client_id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <td className="px-4 py-2.5 text-sm font-medium">{c.client_name}</td>
+                  <td className="px-4 py-2.5 text-sm text-right font-semibold">{c.total_leads}</td>
+                </tr>
+              ))}
+              {crmLeadCounts.length > 0 && (
+                <tr className="bg-muted/20">
+                  <td className="px-4 py-2.5 text-sm font-semibold">Total</td>
+                  <td className="px-4 py-2.5 text-sm text-right font-bold text-primary">
+                    {crmLeadCounts.reduce((sum: number, c: any) => sum + c.total_leads, 0)}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Stock Section */}
       {stockLeads.length > 0 && (
         <div className="bg-card border border-border rounded-xl overflow-hidden">
