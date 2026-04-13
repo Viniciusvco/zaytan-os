@@ -20,6 +20,7 @@ export function MonitoringDashboard({ campaignId }: Props) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedStockLeads, setSelectedStockLeads] = useState<string[]>([]);
   const [targetClient, setTargetClient] = useState("");
+  const [showCrmLeads, setShowCrmLeads] = useState(false);
 
   const selectedDate = datePreset === "ontem" ? subDays(new Date(), 1) : datePreset === "custom" ? customDate : new Date();
   const dateLabel = datePreset === "hoje" ? "Hoje" : datePreset === "ontem" ? "Ontem" : format(customDate, "dd/MM/yyyy");
