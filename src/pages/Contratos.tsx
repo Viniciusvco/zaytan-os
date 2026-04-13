@@ -18,6 +18,7 @@ import { CampaignManager } from "@/components/motor/CampaignManager";
 import { LeadQueue } from "@/components/motor/LeadQueue";
 import { StockManager } from "@/components/motor/StockManager";
 import { AuditLog } from "@/components/motor/AuditLog";
+import { buildLeadDateFilter, getInclusiveDayBounds, getInclusiveDayBoundsFromDateStrings } from "@/lib/lead-date";
 
 const SYSTEM_DISTRIBUTION_CAMPAIGN_NAME = "__crm_distribution__";
 
@@ -303,26 +304,24 @@ const Contratos = () => {
   // Monitoring: leads distributed per client
   const monitorDateRange = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
-    if (monitorPeriod === "today") return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
+    if (monitorPeriod === "today") return getInclusiveDayBounds(now);
     if (monitorPeriod === "yesterday") {
       const y = new Date(now); y.setDate(y.getDate() - 1);
-      const yStr = y.toISOString().split("T")[0];
-      return { from: `${yStr}T00:00:00.000Z`, to: `${yStr}T23:59:59.999Z` };
+      return getInclusiveDayBounds(y);
     }
     if (monitorPeriod === "7d") {
       const d = new Date(now); d.setDate(d.getDate() - 7);
-      return { from: d.toISOString(), to: now.toISOString() };
+      return getInclusiveDayBounds(d, now);
     }
     if (monitorPeriod === "30d") {
       const d = new Date(now); d.setDate(d.getDate() - 30);
-      return { from: d.toISOString(), to: now.toISOString() };
+      return getInclusiveDayBounds(d, now);
     }
     if (monitorPeriod.startsWith("custom:")) {
       const customDateStr = monitorPeriod.replace("custom:", "");
-      return { from: `${customDateStr}T00:00:00.000Z`, to: `${customDateStr}T23:59:59.999Z` };
+      return getInclusiveDayBoundsFromDateStrings(customDateStr);
     }
-    return { from: `${todayStr}T00:00:00.000Z`, to: `${todayStr}T23:59:59.999Z` };
+    return getInclusiveDayBounds(now);
   }, [monitorPeriod]);
 
   const monitorClientIds = useMemo(() => distributionPreview.map(d => d.client_id), [distributionPreview]);
@@ -343,7 +342,7 @@ const Contratos = () => {
           .from("leads")
           .select("client_id, lead_entry_date, created_at")
           .in("client_id", monitorClientIds)
-          .or(`and(lead_entry_date.gte.${monitorDateRange.from},lead_entry_date.lte.${monitorDateRange.to}),and(lead_entry_date.is.null,created_at.gte.${monitorDateRange.from},created_at.lte.${monitorDateRange.to})`)
+          .or(buildLeadDateFilter(monitorDateRange.from, monitorDateRange.to))
           .range(leadsFrom, leadsFrom + pageSize - 1);
         if (error) throw error;
         if (!batch || batch.length === 0) break;
@@ -432,6 +431,7 @@ const Contratos = () => {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["monitor-stock-leads"] });
       qc.invalidateQueries({ queryKey: ["distribution-monitoring"] });
+      qc.invalidateQueries({ queryKey: ["crm-lead-counts"] });
       qc.invalidateQueries({ queryKey: ["stock-leads"] });
       qc.invalidateQueries({ queryKey: ["motor-metrics"] });
       setMonitorStockSelected([]);
@@ -474,9 +474,12 @@ const Contratos = () => {
       });
       if (error) throw error;
       setSyncResult(data);
-      // Auto-refresh monitoring after import
-      refetchMonitoring();
-      refetchMonitorStock();
+      await Promise.all([
+        refetchMonitoring(),
+        refetchMonitorStock(),
+        qc.invalidateQueries({ queryKey: ["crm-lead-counts"] }),
+        qc.invalidateQueries({ queryKey: ["motor-metrics"] }),
+      ]);
       if (data?.total_inserted > 0) {
         toast.success(`${data.total_inserted} leads importados! ${data.total_updated > 0 ? `${data.total_updated} atualizados.` : ""}`);
       } else if (data?.total_updated > 0) {

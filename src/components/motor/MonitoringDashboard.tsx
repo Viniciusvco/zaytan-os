@@ -9,6 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { buildLeadDateFilter, getInclusiveDayBounds } from "@/lib/lead-date";
 
 type DatePreset = "hoje" | "ontem" | "custom";
 type Props = { campaignId: string | null };
@@ -24,6 +25,7 @@ export function MonitoringDashboard({ campaignId }: Props) {
 
   const selectedDate = datePreset === "ontem" ? subDays(new Date(), 1) : datePreset === "custom" ? customDate : new Date();
   const dateLabel = datePreset === "hoje" ? "Hoje" : datePreset === "ontem" ? "Ontem" : format(customDate, "dd/MM/yyyy");
+  const selectedDateRange = getInclusiveDayBounds(selectedDate);
 
   const { data: metrics, isLoading } = useQuery({
     queryKey: ["motor-metrics", campaignId, format(selectedDate, "yyyy-MM-dd")],
@@ -68,8 +70,8 @@ export function MonitoringDashboard({ campaignId }: Props) {
     enabled: !!campaignId,
   });
 
-  const { data: crmLeadCounts = [], isLoading: crmLoading, refetch: refetchCrm } = useQuery({
-    queryKey: ["crm-lead-counts", campaignId, format(selectedDate, "yyyy-MM-dd")],
+  const { data: crmLeadCounts = [], isLoading: crmLoading, isFetching: crmFetching, refetch: refetchCrm } = useQuery({
+    queryKey: ["crm-lead-counts", campaignId, selectedDateRange.from, selectedDateRange.to],
     queryFn: async () => {
       if (!campaignId) return [];
       // Get client IDs in this campaign
@@ -79,19 +81,12 @@ export function MonitoringDashboard({ campaignId }: Props) {
       if (!ccData || ccData.length === 0) return [];
 
       const clientIds = ccData.map((cc: any) => cc.client_id);
-      
-      // Query leads table for each client, filtered by date
-      const dayStart = new Date(selectedDate);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(selectedDate);
-      dayEnd.setHours(23, 59, 59, 999);
 
       const results = await Promise.all(clientIds.map(async (clientId: string) => {
         const { count } = await supabase.from("leads")
           .select("*", { count: "exact", head: true })
           .eq("client_id", clientId)
-          .gte("lead_entry_date", dayStart.toISOString())
-          .lte("lead_entry_date", dayEnd.toISOString());
+          .or(buildLeadDateFilter(selectedDateRange.from, selectedDateRange.to));
         
         const clientInfo = ccData.find((cc: any) => cc.client_id === clientId);
         return {
@@ -117,6 +112,7 @@ export function MonitoringDashboard({ campaignId }: Props) {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["stock-leads-monitor"] });
       qc.invalidateQueries({ queryKey: ["motor-metrics"] });
+      qc.invalidateQueries({ queryKey: ["crm-lead-counts"] });
       qc.invalidateQueries({ queryKey: ["stock-leads"] });
       setSelectedStockLeads([]);
       setTargetClient("");
@@ -275,9 +271,9 @@ export function MonitoringDashboard({ campaignId }: Props) {
             variant={showCrmLeads ? "outline" : "default"}
             className="h-7 text-xs gap-1.5"
             onClick={() => { setShowCrmLeads(true); refetchCrm(); }}
-            disabled={crmLoading}
+            disabled={crmFetching}
           >
-            <RefreshCw className={`h-3 w-3 ${crmLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3 w-3 ${crmFetching ? "animate-spin" : ""}`} />
             {showCrmLeads ? "Atualizar" : "Carregar"}
           </Button>
         </div>
