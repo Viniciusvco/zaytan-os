@@ -880,6 +880,74 @@ const Contratos = () => {
                 </div>
               </div>
             )}
+
+            {/* Stock Section in Monitoring */}
+            {monitorStockLeads.length > 0 && (
+              <div className="mt-6 border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Package className="h-4 w-4 text-warning" /> Estoque ({monitorStockLeads.length} lead{monitorStockLeads.length !== 1 ? "s" : ""})
+                  </h4>
+                  {monitorStockSelected.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-primary">{monitorStockSelected.length} selecionado(s)</span>
+                      <select className="h-7 px-2 rounded bg-muted border-0 text-xs" value={monitorStockTarget} onChange={e => setMonitorStockTarget(e.target.value)}>
+                        <option value="">Enviar para...</option>
+                        {distributionPreview.map(d => (
+                          <option key={d.client_id} value={d.client_id}>{d.name}</option>
+                        ))}
+                      </select>
+                      <Button size="sm" variant="default" className="h-7 text-xs" onClick={() => sendMonitorStockMut.mutate()} disabled={!monitorStockTarget || sendMonitorStockMut.isPending}>
+                        <Send className="h-3.5 w-3.5 mr-1" /> Enviar
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <div className="bg-muted/30 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border text-xs text-muted-foreground">
+                        <th className="px-3 py-2 w-8">
+                          <input type="checkbox" checked={monitorStockSelected.length === monitorStockLeads.length && monitorStockLeads.length > 0} onChange={() => setMonitorStockSelected(prev => prev.length === monitorStockLeads.length ? [] : monitorStockLeads.map((l: any) => l.id))} className="rounded" />
+                        </th>
+                        <th className="text-left px-3 py-2">Nome</th>
+                        <th className="text-left px-3 py-2">Telefone</th>
+                        <th className="text-left px-3 py-2">Email</th>
+                        <th className="text-left px-3 py-2">Cliente Origem</th>
+                        <th className="text-left px-3 py-2">Entrada</th>
+                        <th className="text-left px-3 py-2">Expira em</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monitorStockLeads.map((l: any) => {
+                        const expiresIn = l.expires_at ? Math.max(0, Math.ceil((new Date(l.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+                        const isNearExpiry = expiresIn !== null && expiresIn <= 1;
+                        return (
+                          <tr key={l.id} className={`border-b border-border last:border-0 hover:bg-muted/30 ${isNearExpiry ? "bg-warning/5" : ""}`}>
+                            <td className="px-3 py-2">
+                              <input type="checkbox" checked={monitorStockSelected.includes(l.id)} onChange={() => setMonitorStockSelected(prev => prev.includes(l.id) ? prev.filter(x => x !== l.id) : [...prev, l.id])} className="rounded" />
+                            </td>
+                            <td className="px-3 py-2 text-sm font-medium">{l.name}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{l.phone || "—"}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{l.email || "—"}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{(l.stock_client as any)?.name || "—"}</td>
+                            <td className="px-3 py-2 text-xs text-muted-foreground">{new Date(l.created_at).toLocaleString("pt-BR")}</td>
+                            <td className="px-3 py-2">
+                              {expiresIn !== null ? (
+                                <span className={`text-xs flex items-center gap-1 ${isNearExpiry ? "text-warning font-semibold" : "text-muted-foreground"}`}>
+                                  {isNearExpiry && <Clock className="h-3 w-3" />}
+                                  {expiresIn}d
+                                </span>
+                              ) : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </TabsContent>
 
