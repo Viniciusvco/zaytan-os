@@ -1,17 +1,33 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart3, Clock, Package, AlertTriangle, XCircle, Users, Zap, ShieldAlert } from "lucide-react";
+import { BarChart3, Clock, Package, AlertTriangle, XCircle, Users, Zap, ShieldAlert, CalendarIcon } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { ptBR } from "date-fns/locale";
+
+type DatePreset = "hoje" | "ontem" | "custom";
 
 type Props = { campaignId: string | null };
 
 export function MonitoringDashboard({ campaignId }: Props) {
+  const [datePreset, setDatePreset] = useState<DatePreset>("hoje");
+  const [customDate, setCustomDate] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const selectedDate = datePreset === "ontem" ? subDays(new Date(), 1) : datePreset === "custom" ? customDate : new Date();
+  const dateLabel = datePreset === "hoje" ? "Hoje" : datePreset === "ontem" ? "Ontem" : format(customDate, "dd/MM/yyyy");
+
   const { data: metrics, isLoading } = useQuery({
-    queryKey: ["motor-metrics", campaignId],
+    queryKey: ["motor-metrics", campaignId, format(selectedDate, "yyyy-MM-dd")],
     queryFn: async () => {
       if (!campaignId) return null;
       const { data, error } = await supabase.functions.invoke("campaign-distribute", {
-        body: { action: "metrics", campaign_id: campaignId },
+        body: { action: "metrics", campaign_id: campaignId, date: format(selectedDate, "yyyy-MM-dd") },
       });
       if (error) throw error;
       return data;
@@ -45,6 +61,56 @@ export function MonitoringDashboard({ campaignId }: Props) {
 
   return (
     <div className="space-y-6">
+      {/* Date Filter */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground font-medium">Período:</span>
+        <Button
+          variant={datePreset === "hoje" ? "default" : "outline"}
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setDatePreset("hoje")}
+        >
+          Hoje
+        </Button>
+        <Button
+          variant={datePreset === "ontem" ? "default" : "outline"}
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setDatePreset("ontem")}
+        >
+          Ontem
+        </Button>
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant={datePreset === "custom" ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+            >
+              <CalendarIcon className="h-3 w-3" />
+              {datePreset === "custom" ? format(customDate, "dd/MM/yyyy") : "Selecionar data"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={customDate}
+              onSelect={(d) => {
+                if (d) {
+                  setCustomDate(d);
+                  setDatePreset("custom");
+                  setCalendarOpen(false);
+                }
+              }}
+              disabled={(d) => d > new Date()}
+              locale={ptBR}
+              className="pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+        <span className="text-xs text-muted-foreground ml-2">({dateLabel})</span>
+      </div>
+
       {/* Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {cards.map((c) => (
