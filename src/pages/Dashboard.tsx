@@ -171,8 +171,6 @@ const Dashboard = () => {
   const effectiveRole = profile.role === "cliente" ? "cliente" : role;
 
   if (effectiveRole === "cliente") {
-    // Use the new ranking dashboard for clients
-    const ClientDashboardRanking = require("@/components/client/ClientDashboardRanking").default;
     return <ClientDashboardRanking />;
   }
   if (effectiveRole === "colaborador") {
