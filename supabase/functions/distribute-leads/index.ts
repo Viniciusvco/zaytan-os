@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
       .from("leads")
       .select("client_id")
       .in("client_id", clientIds)
-      .eq("source", "leads_laportec_star5")
+      .eq("source", "leads_geral_campanha")
       .gte("created_at", todayRange.from)
       .lte("created_at", todayRange.to);
 
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         .from("leads")
         .select("id, notes, status")
         .eq("client_id", cid)
-        .eq("source", "leads_laportec_star5");
+        .eq("source", "leads_geral_campanha");
 
       const map = new Map<string, { id: string; status: string }>();
       for (const l of existingLeads || []) {
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
 
     // Fetch external leads
     const { data: externalLeads, error: extError } = await externalSupabase
-      .from("leads_laportec_star5")
+      .from("leads_geral_campanha")
       .select("*");
 
     if (extError) {
@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
           name: lead["Nome"] || "Lead sem nome",
           email: lead["Email"] || null,
           phone: lead["Telefone"] || null,
-          source: "leads_laportec_star5",
+          source: "leads_geral_campanha",
           status: "novo",
           notes: `ext_id:${extId}`,
           financing_type: lead["Qual tipo de financiamento"] || null,

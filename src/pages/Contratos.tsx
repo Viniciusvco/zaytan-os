@@ -341,7 +341,7 @@ const Contratos = () => {
           .from("leads")
           .select("client_id, lead_entry_date, created_at")
           .in("client_id", monitorClientIds)
-          .eq("source", "leads_laportec_star5")
+          .eq("source", "leads_geral_campanha")
           .gte("lead_entry_date", monitorDateRange.from)
           .lte("lead_entry_date", monitorDateRange.to)
           .range(from, from + pageSize - 1);
