@@ -90,8 +90,8 @@ export function MonitoringDashboard({ campaignId }: Props) {
         const { count } = await supabase.from("leads")
           .select("*", { count: "exact", head: true })
           .eq("client_id", clientId)
-          .gte("created_at", dayStart.toISOString())
-          .lte("created_at", dayEnd.toISOString());
+          .gte("lead_entry_date", dayStart.toISOString())
+          .lte("lead_entry_date", dayEnd.toISOString());
         
         const clientInfo = ccData.find((cc: any) => cc.client_id === clientId);
         return {
