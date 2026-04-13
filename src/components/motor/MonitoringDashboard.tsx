@@ -68,7 +68,45 @@ export function MonitoringDashboard({ campaignId }: Props) {
     enabled: !!campaignId,
   });
 
-  const sendStockMut = useMutation({
+  const { data: crmLeadCounts = [], isLoading: crmLoading, refetch: refetchCrm } = useQuery({
+    queryKey: ["crm-lead-counts", campaignId, format(selectedDate, "yyyy-MM-dd")],
+    queryFn: async () => {
+      if (!campaignId) return [];
+      // Get client IDs in this campaign
+      const { data: ccData } = await supabase.from("campaign_clients")
+        .select("client_id, clients(name)")
+        .eq("campaign_id", campaignId);
+      if (!ccData || ccData.length === 0) return [];
+
+      const clientIds = ccData.map((cc: any) => cc.client_id);
+      
+      // Query leads table for each client, filtered by date
+      const dayStart = new Date(selectedDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(selectedDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const results = await Promise.all(clientIds.map(async (clientId: string) => {
+        const { count } = await supabase.from("leads")
+          .select("*", { count: "exact", head: true })
+          .eq("client_id", clientId)
+          .gte("created_at", dayStart.toISOString())
+          .lte("created_at", dayEnd.toISOString());
+        
+        const clientInfo = ccData.find((cc: any) => cc.client_id === clientId);
+        return {
+          client_id: clientId,
+          client_name: (clientInfo?.clients as any)?.name || "—",
+          total_leads: count || 0,
+        };
+      }));
+
+      return results;
+    },
+    enabled: !!campaignId && showCrmLeads,
+  });
+
+
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("campaign-distribute", {
         body: { action: "send_stock", lead_queue_ids: selectedStockLeads, target_client_id: targetClient },
