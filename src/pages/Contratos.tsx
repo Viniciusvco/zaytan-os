@@ -771,8 +771,11 @@ const Contratos = () => {
                   <h3 className="text-sm font-semibold">Monitoramento de Distribuição</h3>
                   <p className="text-xs text-muted-foreground">
                     Quantidade atual no CRM e distribuição por cliente, pela data de entrada
+                    {monitoringData?.fetchedAt && (
+                      <> · Atualizado em: <span className="font-medium">{new Date(monitoringData.fetchedAt).toLocaleString("pt-BR")}</span></>
+                    )}
                     {monitoringData?.lastUpdate && (
-                      <> · Última atualização: <span className="font-medium">{new Date(monitoringData.lastUpdate).toLocaleString("pt-BR")}</span></>
+                      <> · Último lead: <span className="font-medium">{new Date(monitoringData.lastUpdate).toLocaleString("pt-BR")}</span></>
                     )}
                   </p>
                 </div>
