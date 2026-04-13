@@ -74,12 +74,16 @@ const colaboradorItems = {
   },
 };
 
-// Default client views: CRM, Contratos, Treinamentos, Onboarding
+// Default client views: CRM, Contratos, Treinamentos, Onboarding, Performance, Gestão de Acessos
 const clienteItems = {
   principal: [
     { title: "Dashboard", url: "/", icon: LayoutDashboard },
     { title: "CRM", url: "/crm", icon: Target },
+    { title: "Performance", url: "/client-performance", icon: BarChart3 },
     { title: "Contratos", url: "/visao-contratos", icon: CreditCard },
+  ],
+  gestao: [
+    { title: "Gestão de Acessos", url: "/client-users", icon: UserCog },
   ],
   aprender: [
     { title: "Treinamentos", url: "/academy", icon: GraduationCap },
