@@ -92,7 +92,8 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
   const novoValorParcela = data.valorParcela * 0.70;
   const reducaoMensal = data.valorParcela - novoValorParcela;
   const estornoPrevisto = reducaoMensal * data.parcelasPagas;
-  const reducaoTotal = reducaoMensal * mesesRestantes;
+  const reducaoFutura = reducaoMensal * mesesRestantes;
+  const reducaoTotal = estornoPrevisto + reducaoFutura;
 
   const now = new Date();
   const dataGeracao = now.toLocaleString("pt-BR");
