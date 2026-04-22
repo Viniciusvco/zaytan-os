@@ -91,6 +91,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
   const mesesRestantes = Math.max(0, data.numMeses - data.parcelasPagas);
   const novoValorParcela = data.valorParcela * 0.70;
   const reducaoMensal = data.valorParcela - novoValorParcela;
+  const estornoPrevisto = reducaoMensal * data.parcelasPagas;
   const reducaoTotal = reducaoMensal * mesesRestantes;
 
   const now = new Date();
@@ -213,7 +214,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                 <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.financeira} onChange={e => set("financeira", e.target.value)} />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground block mb-1">Modelo do Veículo</label>
+                <label className="text-xs text-muted-foreground block mb-1">Modelo do Contrato</label>
                 <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" value={data.modeloVeiculo} onChange={e => set("modeloVeiculo", e.target.value)} />
               </div>
               <div>
@@ -265,7 +266,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Estorno Previsto:</span>
-                  <span className="font-bold">R$ 0,00</span>
+                  <span className="font-bold">R$ {fmt(estornoPrevisto)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Meses Restantes:</span>
@@ -318,7 +319,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                 <div style={{ padding: "12px 14px" }}>
                   {[
                     ["Financeira", data.financeira],
-                    ["Modelo do Veículo", data.modeloVeiculo],
+                    ["Modelo do Contrato", data.modeloVeiculo],
                     ["Valor Financiado", `R$ ${fmt(data.valorFinanciado)}`],
                     ["Nº de Meses (Total)", data.numMeses],
                     ["Valor da Parcela", `R$ ${fmt(data.valorParcela)}`],
@@ -340,7 +341,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                     ["Status", "APROVADO"],
                     ["Novo Valor Parcela", `R$ ${fmt(novoValorParcela)}`],
                     ["Redução Mensal", `R$ ${fmt(reducaoMensal)}`],
-                    ["Estorno Previsto", "R$ 0,00"],
+                    ["Estorno Previsto", `R$ ${fmt(estornoPrevisto)}`],
                     ["Redução Total", `R$ ${fmt(reducaoTotal)}`],
                   ].map(([label, val], i) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: i < 5 ? "1px solid #f0f0f0" : "none", fontSize: "11px" }}>
