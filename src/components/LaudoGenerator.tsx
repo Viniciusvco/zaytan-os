@@ -50,6 +50,11 @@ const formatCnpj = (value: string) => {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 };
 
+const formatCpfOrCnpj = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  return digits.length <= 11 ? formatCpf(digits) : formatCnpj(digits);
+};
+
 const defaultData: LaudoFormData = {
   clientName: "",
   cpf: "",
@@ -187,8 +192,8 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
               <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" value={data.clientName} onChange={e => set("clientName", e.target.value)} />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground block mb-1">CPF</label>
-              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="000.000.000-00" value={data.cpf} onChange={e => set("cpf", formatCpf(e.target.value))} />
+              <label className="text-xs font-medium text-muted-foreground block mb-1">CPF/CNPJ</label>
+              <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="000.000.000-00 ou 00.000.000/0000-00" value={data.cpf} onChange={e => set("cpf", formatCpfOrCnpj(e.target.value))} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground block mb-1">Consultor</label>
@@ -300,7 +305,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "15px", fontWeight: 700 }}>{data.clientName}</div>
-                <div style={{ fontSize: "11px", color: "#666" }}>CPF: {data.cpf || "—"}</div>
+                <div style={{ fontSize: "11px", color: "#666" }}>CPF/CNPJ: {data.cpf || "—"}</div>
               </div>
               <div style={{ textAlign: "right", fontSize: "10px", color: "#666" }}>
                 {data.consultorName && <div>Consultor: {data.consultorName}</div>}
