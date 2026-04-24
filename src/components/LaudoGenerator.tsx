@@ -24,11 +24,13 @@ interface LaudoFormData {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  leadName: string;
+  leadName?: string;
   leadPhone?: string;
   leadEmail?: string;
   leadId?: string;
   clientName?: string;
+  /** When provided, saves to laudos_avulsos instead of leads */
+  avulsoClientId?: string | null;
   onPdfSaved?: () => void;
   existingLaudoData?: LaudoFormData | null;
 }
@@ -71,10 +73,11 @@ const defaultData: LaudoFormData = {
   numeroProposta: 0,
 };
 
-export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail, leadId, clientName, onPdfSaved, existingLaudoData }: Props) {
+export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEmail, leadId, clientName, avulsoClientId, onPdfSaved, existingLaudoData }: Props) {
   const [data, setData] = useState<LaudoFormData>({ ...defaultData });
   const [generating, setGenerating] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const isAvulso = avulsoClientId !== undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -83,7 +86,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
     } else {
       setData({
         ...defaultData,
-        clientName: leadName,
+        clientName: leadName || "",
         assessoriaName: clientName || "",
       });
     }
@@ -137,20 +140,36 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
         .from(printRef.current)
         .outputPdf("blob");
 
-      // Save laudo data AND pdf to lead
-      if (leadId) {
-        const fileName = `${leadId}/${Date.now()}.pdf`;
-        const { error: uploadError } = await supabase.storage
-          .from("laudos")
-          .upload(fileName, pdfBlob, { contentType: "application/pdf", upsert: true });
+      // Save laudo data + pdf
+      let pdfUrl: string | null = null;
+      const filePrefix = leadId ?? avulsoClientId ?? "anon";
+      const fileName = `${filePrefix}/${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("laudos")
+        .upload(fileName, pdfBlob, { contentType: "application/pdf", upsert: true });
 
-        if (uploadError) {
-          console.error("Upload error", uploadError);
-        }
-
+      if (uploadError) {
+        console.error("Upload error", uploadError);
+      } else {
         const { data: urlData } = supabase.storage.from("laudos").getPublicUrl(fileName);
-        const pdfUrl = urlData?.publicUrl || null;
+        pdfUrl = urlData?.publicUrl || null;
+      }
 
+      if (isAvulso) {
+        const { error: insertErr } = await supabase.from("laudos_avulsos").insert({
+          client_id: avulsoClientId,
+          client_name: laudoToSave.clientName,
+          cpf: laudoToSave.cpf || null,
+          consultor_name: laudoToSave.consultorName || null,
+          assessoria_name: laudoToSave.assessoriaName || null,
+          numero_proposta: laudoToSave.numeroProposta || null,
+          laudo_data: laudoToSave as any,
+          pdf_url: pdfUrl,
+        });
+        if (insertErr) console.error("Insert laudo error", insertErr);
+        toast.success("Laudo gerado e salvo no histórico!");
+        onPdfSaved?.();
+      } else if (leadId) {
         await supabase.from("leads").update({
           laudo_pdf_url: pdfUrl,
           laudo_data: laudoToSave as any,
