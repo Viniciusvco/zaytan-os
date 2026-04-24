@@ -30,25 +30,36 @@ const Laudos = () => {
     }
     setViewing(laudo.id);
     try {
-      // Try to derive storage path
       let path: string | null = laudo.laudo_data?.pdf_path ?? null;
       if (!path && laudo.pdf_url) {
         const m = laudo.pdf_url.match(/\/laudos\/(.+)$/);
         if (m) path = m[1];
       }
+      let blob: Blob | null = null;
       if (path) {
         const { data, error } = await supabase.storage.from("laudos").download(path);
-        if (error || !data) throw error || new Error("download falhou");
-        const url = URL.createObjectURL(data);
-        window.open(url, "_blank");
-        // revoke later
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      } else if (laudo.pdf_url) {
-        window.open(laudo.pdf_url, "_blank");
+        if (!error && data) blob = data;
       }
+      if (!blob && laudo.pdf_url) {
+        // Fallback via fetch direto
+        const res = await fetch(laudo.pdf_url);
+        if (res.ok) blob = await res.blob();
+      }
+      if (!blob) throw new Error("PDF não encontrado");
+
+      // Força DOWNLOAD em vez de abrir nova aba (extensões bloqueiam blob:)
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `laudo-${laudo.client_name || "cliente"}-${laudo.numero_proposta || laudo.id.slice(0,8)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast.success("PDF baixado");
     } catch (e) {
       console.error(e);
-      toast.error("Não foi possível abrir o PDF");
+      toast.error("Não foi possível baixar o PDF");
     } finally {
       setViewing(null);
     }
@@ -244,7 +255,7 @@ const Laudos = () => {
                 <div className="flex items-center gap-2 shrink-0">
                   {(l.pdf_url || l.laudo_data?.pdf_path) && (
                     <Button variant="outline" size="sm" onClick={() => openPdf(l)} disabled={viewing === l.id}>
-                      <Eye className="h-3.5 w-3.5 mr-1" /> {viewing === l.id ? "..." : "Ver PDF"}
+                      <Download className="h-3.5 w-3.5 mr-1" /> {viewing === l.id ? "..." : "Baixar PDF"}
                     </Button>
                   )}
                   <Button

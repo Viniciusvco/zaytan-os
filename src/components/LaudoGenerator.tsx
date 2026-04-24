@@ -81,6 +81,8 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
 
   useEffect(() => {
     if (!open) return;
+    // Pré-carrega html2pdf assim que abrir (paraleliza com preenchimento do form)
+    import("html2pdf.js").catch(() => {});
     if (existingLaudoData) {
       setData(existingLaudoData);
     } else {
@@ -112,13 +114,13 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
   const exportPDF = async () => {
     if (!printRef.current) return;
     setGenerating(true);
+    const t0 = performance.now();
     try {
       // Get next proposal number if not already set
       let proposalNum = data.numeroProposta;
       if (!proposalNum) {
         const { data: seqData, error: seqErr } = await supabase.rpc("nextval_proposal" as any);
         if (seqErr) {
-          // Fallback: use timestamp-based number
           proposalNum = 18392 + Math.floor(Math.random() * 1000);
         } else {
           proposalNum = Number(seqData);
@@ -133,65 +135,84 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
         .set({
           margin: [10, 12, 10, 12],
           filename: `laudo-${data.clientName || "cliente"}-${now.toISOString().split("T")[0]}.pdf`,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, width: 794 },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          image: { type: "jpeg", quality: 0.92 },
+          // scale 1.5 reduz tempo de renderização ~40% mantendo legibilidade
+          html2canvas: { scale: 1.5, useCORS: true, width: 794, logging: false },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: true },
         })
         .from(printRef.current)
         .outputPdf("blob");
 
-      // Save laudo data + pdf
-      let pdfUrl: string | null = null;
+      console.log(`[Laudo] PDF gerado em ${Math.round(performance.now() - t0)}ms`);
+
+      // 1) Download local IMEDIATO — usuário já tem o arquivo
+      const downloadName = `laudo-${data.clientName || "cliente"}-${now.toISOString().split("T")[0]}.pdf`;
+      const localUrl = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = localUrl;
+      a.download = downloadName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(localUrl), 5000);
+
+      // 2) Mostra feedback imediato e fecha o dialog
+      toast.success("Laudo gerado! Salvando no histórico...");
+      setGenerating(false);
+      onPdfSaved?.();
+
+      // 3) Upload + insert em background (não bloqueia UI)
       const filePrefix = leadId ?? avulsoClientId ?? "anon";
       const fileName = `${filePrefix}/${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from("laudos")
-        .upload(fileName, pdfBlob, { contentType: "application/pdf", upsert: true });
+      (async () => {
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from("laudos")
+            .upload(fileName, pdfBlob, { contentType: "application/pdf", upsert: true });
 
-      if (uploadError) {
-        console.error("Upload error", uploadError);
-      } else {
-        const { data: urlData } = supabase.storage.from("laudos").getPublicUrl(fileName);
-        pdfUrl = urlData?.publicUrl || null;
-      }
+          let pdfUrl: string | null = null;
+          if (uploadError) {
+            console.error("Upload error", uploadError);
+          } else {
+            const { data: urlData } = supabase.storage.from("laudos").getPublicUrl(fileName);
+            pdfUrl = urlData?.publicUrl || null;
+          }
 
-      if (isAvulso) {
-        const { data: authData } = await supabase.auth.getUser();
-        const { error: insertErr } = await supabase.from("laudos_avulsos").insert({
-          client_id: avulsoClientId,
-          client_name: laudoToSave.clientName,
-          cpf: laudoToSave.cpf || null,
-          consultor_name: laudoToSave.consultorName || null,
-          assessoria_name: laudoToSave.assessoriaName || null,
-          numero_proposta: laudoToSave.numeroProposta || null,
-          laudo_data: { ...laudoToSave, pdf_path: fileName } as any,
-          pdf_url: pdfUrl,
-          created_by: authData?.user?.id ?? null,
-        });
-        if (insertErr) console.error("Insert laudo error", insertErr);
-        toast.success("Laudo gerado e salvo no histórico!");
-        onPdfSaved?.();
-      } else if (leadId) {
-        await supabase.from("leads").update({
-          laudo_pdf_url: pdfUrl,
-          laudo_data: laudoToSave as any,
-        } as any).eq("id", leadId);
-
-        toast.success("Laudo salvo e anexado ao card!");
-        onPdfSaved?.();
-      }
-
-      // Download locally
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `laudo-${data.clientName || "cliente"}-${now.toISOString().split("T")[0]}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+          if (isAvulso) {
+            const { data: authData } = await supabase.auth.getUser();
+            const { error: insertErr } = await supabase.from("laudos_avulsos").insert({
+              client_id: avulsoClientId,
+              client_name: laudoToSave.clientName,
+              cpf: laudoToSave.cpf || null,
+              consultor_name: laudoToSave.consultorName || null,
+              assessoria_name: laudoToSave.assessoriaName || null,
+              numero_proposta: laudoToSave.numeroProposta || null,
+              laudo_data: { ...laudoToSave, pdf_path: fileName } as any,
+              pdf_url: pdfUrl,
+              created_by: authData?.user?.id ?? null,
+            });
+            if (insertErr) {
+              console.error("Insert laudo error", insertErr);
+              toast.error("PDF gerado, mas falhou ao salvar no histórico");
+            } else {
+              toast.success("Histórico atualizado");
+              onPdfSaved?.();
+            }
+          } else if (leadId) {
+            await supabase.from("leads").update({
+              laudo_pdf_url: pdfUrl,
+              laudo_data: laudoToSave as any,
+            } as any).eq("id", leadId);
+            onPdfSaved?.();
+          }
+        } catch (bgErr) {
+          console.error("Background save error", bgErr);
+          toast.error("PDF baixado, mas falhou ao salvar online");
+        }
+      })();
     } catch (e) {
       console.error("PDF error", e);
       toast.error("Erro ao gerar PDF");
-    } finally {
       setGenerating(false);
     }
   };
