@@ -44,6 +44,30 @@ const Usuarios = () => {
     },
   });
 
+  const { data: clientRoleMap = {} } = useQuery({
+    queryKey: ["client-user-roles-map"],
+    queryFn: async () => {
+      const { data: roles, error } = await supabase
+        .from("client_user_roles")
+        .select("user_id, client_role, client_id");
+      if (error) throw error;
+      const clientIds = Array.from(new Set((roles || []).map((r: any) => r.client_id)));
+      const { data: clients } = clientIds.length
+        ? await supabase.from("clients").select("id, name").in("id", clientIds)
+        : { data: [] as any[] };
+      const clientNameById: Record<string, string> = {};
+      (clients || []).forEach((c: any) => { clientNameById[c.id] = c.name; });
+      const map: Record<string, { client_role: string; client_name: string }> = {};
+      (roles || []).forEach((r: any) => {
+        map[r.user_id] = {
+          client_role: r.client_role,
+          client_name: clientNameById[r.client_id] || "—",
+        };
+      });
+      return map;
+    },
+  });
+
   const createMut = useMutation({
     mutationFn: async () => {
       const { error } = await createUser(form.email, form.password, form.name, form.role);
