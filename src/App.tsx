@@ -4,11 +4,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { RoleProvider, useRole } from "@/contexts/RoleContext";
+import { RoleProvider } from "@/contexts/RoleContext";
 import { ClientRoleProvider } from "@/contexts/ClientRoleContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import CRM from "./pages/CRM";
+import Laudos from "./pages/Laudos";
 import Usuarios from "./pages/Usuarios";
 import ClientUsersManagement from "./pages/ClientUsersManagement";
 import NotFound from "./pages/NotFound";
@@ -16,8 +17,6 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function HomeRedirect() {
-  const { role } = useRole();
-  if (role === "cliente") return <Navigate to="/crm" replace />;
   return <Navigate to="/crm" replace />;
 }
 
@@ -43,6 +42,7 @@ function ProtectedRoutes() {
           <Routes>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/crm" element={<CRM />} />
+            <Route path="/laudos" element={<Laudos />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/client-users" element={<ClientUsersManagement />} />
             <Route path="*" element={<NotFound />} />

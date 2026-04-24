@@ -72,6 +72,7 @@ export type Database = {
           assigned_to: string | null
           company: string | null
           created_at: string
+          crm_hidden: boolean
           email: string | null
           id: string
           logo_url: string | null
@@ -87,6 +88,7 @@ export type Database = {
           assigned_to?: string | null
           company?: string | null
           created_at?: string
+          crm_hidden?: boolean
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           assigned_to?: string | null
           company?: string | null
           created_at?: string
+          crm_hidden?: boolean
           email?: string | null
           id?: string
           logo_url?: string | null
@@ -118,6 +121,59 @@ export type Database = {
             columns: ["assigned_to"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      laudos_avulsos: {
+        Row: {
+          assessoria_name: string | null
+          client_id: string | null
+          client_name: string
+          consultor_name: string | null
+          cpf: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          laudo_data: Json
+          numero_proposta: number | null
+          pdf_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          assessoria_name?: string | null
+          client_id?: string | null
+          client_name: string
+          consultor_name?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          laudo_data?: Json
+          numero_proposta?: number | null
+          pdf_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assessoria_name?: string | null
+          client_id?: string | null
+          client_name?: string
+          consultor_name?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          laudo_data?: Json
+          numero_proposta?: number | null
+          pdf_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "laudos_avulsos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]

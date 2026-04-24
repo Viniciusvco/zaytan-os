@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Power, PowerOff, Pencil, Trash2 } from "lucide-react";
+import { Plus, Power, PowerOff, Pencil, Trash2, Eye, EyeOff, Building2, FileText } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -174,7 +174,9 @@ const Usuarios = () => {
         </table>
       </div>
 
-      {/* Add user dialog */}
+      <ClientCrmVisibility />
+
+
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Nome completo" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
@@ -229,4 +231,88 @@ const Usuarios = () => {
   );
 };
 
+function ClientCrmVisibility() {
+  const qc = useQueryClient();
+
+  const { data: clients = [], isLoading } = useQuery({
+    queryKey: ["clients-crm-visibility"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, crm_hidden, active")
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: async ({ id, hidden }: { id: string; hidden: boolean }) => {
+      const { error } = await supabase
+        .from("clients")
+        .update({ crm_hidden: hidden })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["clients-crm-visibility"] });
+      qc.invalidateQueries({ queryKey: ["sidebar-my-client"] });
+      toast.success(vars.hidden ? "CRM oculto — Gerador de Laudos será exibido" : "CRM visível novamente");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Visibilidade do CRM por Cliente
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Quando o CRM estiver oculto, o cliente verá apenas o Gerador de Laudos no menu.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <div className="p-8 text-center text-sm text-muted-foreground">Carregando...</div>
+      ) : clients.length === 0 ? (
+        <div className="p-8 text-center text-sm text-muted-foreground">Nenhum cliente cadastrado.</div>
+      ) : (
+        <div className="divide-y divide-border">
+          {clients.map((c: any) => (
+            <div key={c.id} className={`px-4 py-3 flex items-center gap-4 ${!c.active ? "opacity-50" : ""}`}>
+              <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Building2 className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{c.name}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {c.crm_hidden ? (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-warning/10 text-warning font-medium flex items-center gap-1">
+                      <EyeOff className="h-3 w-3" /> CRM oculto
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success font-medium flex items-center gap-1">
+                      <Eye className="h-3 w-3" /> CRM visível
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-muted-foreground">Ocultar CRM</span>
+                <Switch
+                  checked={!!c.crm_hidden}
+                  disabled={toggleMut.isPending}
+                  onCheckedChange={(checked) => toggleMut.mutate({ id: c.id, hidden: checked })}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default Usuarios;
+
