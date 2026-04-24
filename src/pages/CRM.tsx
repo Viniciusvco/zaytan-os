@@ -819,7 +819,6 @@ const CRM = () => {
     </div>
   );
 
-  if (role === "colaborador") return <ComingSoon>{content}</ComingSoon>;
   return content;
 };
 
