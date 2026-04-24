@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useRole, LossReason, lossReasonLabels } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { ComingSoon } from "@/components/ComingSoon";
+
 import { Plus, Phone, Mail, ExternalLink, Download, Upload, Tag, Filter, Car, CreditCard, Calendar, RefreshCw, Trash2, Search, MoreHorizontal, FileText } from "lucide-react";
 import { LaudoGenerator } from "@/components/LaudoGenerator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -200,19 +200,10 @@ const CRM = () => {
       const { error } = await supabase.from("leads").update(update).eq("id", id);
       if (error) throw error;
 
-      // Auto-create juridico card + payment tracking when closing
+      // Auto-create payment tracking when closing
       if (status === "fechado") {
         const lead = leads.find((l: any) => l.id === id);
         if (lead) {
-          // Create juridico card (ignore if already exists)
-          await supabase.from("juridico_cards").insert({
-            lead_id: id,
-            client_id: lead.client_id,
-            status: "analise_documentacao" as any,
-            laudo_url: lead.laudo_pdf_url || null,
-          }).then(() => {});
-
-          // Create payment tracking (ignore if already exists)
           await supabase.from("payment_tracking").insert({
             lead_id: id,
             client_id: lead.client_id,
@@ -819,7 +810,6 @@ const CRM = () => {
     </div>
   );
 
-  if (role === "colaborador") return <ComingSoon>{content}</ComingSoon>;
   return content;
 };
 

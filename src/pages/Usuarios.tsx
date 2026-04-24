@@ -2,34 +2,19 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Power, PowerOff, Pencil, Trash2, Eye, EyeOff, Settings } from "lucide-react";
+import { Plus, Power, PowerOff, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
-type AppRole = "admin" | "colaborador" | "cliente";
-type ColabType = "gestor" | "designer" | "cs";
+type AppRole = "admin" | "cliente";
 
 const typeConfig: Record<string, { label: string; className: string }> = {
   admin: { label: "Admin", className: "bg-primary/10 text-primary" },
-  colaborador: { label: "Colaborador", className: "bg-info/10 text-info" },
   cliente: { label: "Cliente", className: "bg-muted text-muted-foreground" },
 };
-
-const colabLabels: Record<ColabType, string> = { gestor: "Gestor de Tráfego", designer: "Designer", cs: "CS" };
-
-const ALL_VIEWS = [
-  { key: "feedbacks", label: "Feedbacks" },
-  { key: "minha-equipe", label: "Minha Equipe" },
-  { key: "suporte", label: "Suporte" },
-  { key: "academy", label: "Treinamentos" },
-  { key: "onboarding", label: "Onboarding" },
-  { key: "visao-contratos", label: "Contratos & Pagamentos" },
-  { key: "crm", label: "CRM" },
-  { key: "demandas", label: "Demandas" },
-];
 
 function calcLifetime(startDate: string | null): string {
   if (!startDate) return "—";
@@ -46,72 +31,30 @@ const Usuarios = () => {
   const { createUser } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [filterType, setFilterType] = useState("all");
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "cliente" as AppRole, colaborador_type: "gestor" as ColabType });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "cliente" as AppRole });
   const [editUser, setEditUser] = useState<any>(null);
   const [deleteUserId, setDeleteUserId] = useState<any>(null);
-  const [visibilityClient, setVisibilityClient] = useState<string | null>(null);
 
   const { data: profiles = [], isLoading } = useQuery({
     queryKey: ["profiles"],
     queryFn: async () => {
       const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: clientsList = [] } = useQuery({
-    queryKey: ["clients-for-visibility"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("clients").select("id, name").eq("active", true).order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: visibilityConfigs = [] } = useQuery({
-    queryKey: ["client-visibility-configs"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("client_visibility_config").select("*");
-      if (error) throw error;
       return data || [];
     },
   });
 
-  const currentVisibility = visibilityConfigs.find((v: any) => v.client_id === visibilityClient);
-  const hiddenViews: string[] = currentVisibility?.hidden_views || [];
-
-  const upsertVisibility = useMutation({
-    mutationFn: async ({ clientId, hidden }: { clientId: string; hidden: string[] }) => {
-      if (currentVisibility) {
-        const { error } = await supabase.from("client_visibility_config").update({ hidden_views: hidden } as any).eq("id", currentVisibility.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("client_visibility_config").insert({ client_id: clientId, hidden_views: hidden } as any);
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["client-visibility-configs"] });
-      toast.success("Visibilidade atualizada");
-    },
-    onError: (e: any) => toast.error(e.message),
-  });
-
-  const toggleView = (viewKey: string) => {
-    if (!visibilityClient) return;
-    const newHidden = hiddenViews.includes(viewKey)
-      ? hiddenViews.filter(v => v !== viewKey)
-      : [...hiddenViews, viewKey];
-    upsertVisibility.mutate({ clientId: visibilityClient, hidden: newHidden });
-  };
-
   const createMut = useMutation({
     mutationFn: async () => {
-      const { error } = await createUser(form.email, form.password, form.name, form.role, form.role === "colaborador" ? form.colaborador_type : undefined);
+      const { error } = await createUser(form.email, form.password, form.name, form.role);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["profiles"] }); setShowAdd(false); setForm({ name: "", email: "", password: "", role: "cliente", colaborador_type: "gestor" }); toast.success("Usuário criado com sucesso"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profiles"] });
+      setShowAdd(false);
+      setForm({ name: "", email: "", password: "", role: "cliente" });
+      toast.success("Usuário criado com sucesso");
+    },
     onError: (e: any) => toast.error(e.message || "Erro ao criar usuário"),
   });
 
@@ -122,9 +65,7 @@ const Usuarios = () => {
       if (!active) {
         const { data: clientData } = await supabase.from("clients").select("id").eq("user_id", user_id);
         if (clientData && clientData.length > 0) {
-          const clientId = clientData[0].id;
-          await supabase.from("clients").update({ active: false }).eq("id", clientId);
-          await supabase.from("contracts").update({ status: "cancelado" as any }).eq("client_id", clientId).eq("status", "ativo" as any);
+          await supabase.from("clients").update({ active: false }).eq("id", clientData[0].id);
         }
       }
     },
@@ -136,9 +77,7 @@ const Usuarios = () => {
     mutationFn: async (user: any) => {
       const { data: clientData } = await supabase.from("clients").select("id").eq("user_id", user.user_id);
       if (clientData && clientData.length > 0) {
-        const clientId = clientData[0].id;
-        await supabase.from("clients").update({ active: false }).eq("id", clientId);
-        await supabase.from("contracts").update({ status: "cancelado" as any }).eq("client_id", clientId);
+        await supabase.from("clients").update({ active: false }).eq("id", clientData[0].id);
       }
       const { error } = await supabase.from("profiles").delete().eq("id", user.id);
       if (error) throw error;
@@ -167,12 +106,15 @@ const Usuarios = () => {
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold tracking-tight">Gestão de Usuários</h1><p className="text-sm text-muted-foreground mt-1">{activeCount} ativos de {profiles.length} total</p></div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Gestão de Usuários</h1>
+          <p className="text-sm text-muted-foreground mt-1">{activeCount} ativos de {profiles.length} total</p>
+        </div>
         <Button onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Novo Usuário</Button>
       </div>
 
       <div className="flex gap-1 bg-muted rounded-lg p-0.5 w-fit flex-wrap">
-        {[{ value: "all", label: "Todos" }, { value: "admin", label: "Admin" }, { value: "colaborador", label: "Colaborador" }, { value: "cliente", label: "Cliente" }].map(tab => (
+        {[{ value: "all", label: "Todos" }, { value: "admin", label: "Admin" }, { value: "cliente", label: "Cliente" }].map(tab => (
           <button key={tab.value} onClick={() => setFilterType(tab.value)}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${filterType === tab.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>{tab.label}</button>
         ))}
@@ -183,7 +125,7 @@ const Usuarios = () => {
           <thead><tr className="border-b border-border">
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Usuário</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Email</th>
-             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Perfil</th>
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Perfil</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Status</th>
             <th className="text-center text-xs font-medium text-muted-foreground px-4 py-3">CSV Import</th>
             <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Início Contrato</th>
@@ -193,18 +135,17 @@ const Usuarios = () => {
           <tbody>
             {filtered.map((u: any) => {
               const tc = typeConfig[u.role] || typeConfig.cliente;
-              const subLabel = u.role === "colaborador" && u.colaborador_type ? ` (${colabLabels[u.colaborador_type as ColabType] || u.colaborador_type})` : "";
               const contractDate = u.contract_start_date || u.created_at;
               return (
                 <tr key={u.id} className={`border-b border-border last:border-0 hover:bg-muted/30 ${!u.active ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.full_name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}</div><span className="text-sm font-medium">{u.full_name}</span></div></td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
-                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${tc.className}`}>{tc.label}{subLabel}</span></td>
+                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${tc.className}`}>{tc.label}</span></td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${u.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.active ? "Ativo" : "Inativo"}</span></td>
                   <td className="px-4 py-3 text-center">
                     {u.role === "cliente" && (
                       <Switch checked={u.csv_import_enabled || false} onCheckedChange={(checked) => {
-                        supabase.from("profiles").update({ csv_import_enabled: checked } as any).eq("id", u.id).then(({ error }) => {
+                        supabase.from("profiles").update({ csv_import_enabled: checked }).eq("id", u.id).then(({ error }) => {
                           if (error) toast.error(error.message);
                           else { qc.invalidateQueries({ queryKey: ["profiles"] }); toast.success(checked ? "CSV habilitado" : "CSV desabilitado"); }
                         });
@@ -233,38 +174,6 @@ const Usuarios = () => {
         </table>
       </div>
 
-      {/* Visibility Config Section */}
-      <div className="metric-card">
-        <h3 className="text-sm font-semibold mb-4 flex items-center gap-2">
-          <Settings className="h-4 w-4 text-primary" /> Configuração de Visões por Cliente
-        </h3>
-        <div className="space-y-4">
-          <select className="h-9 px-3 rounded-lg bg-muted border-0 text-sm w-full max-w-xs" value={visibilityClient || ""} onChange={e => setVisibilityClient(e.target.value || null)}>
-            <option value="">Selecione um cliente</option>
-            {clientsList.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-
-          {visibilityClient && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {ALL_VIEWS.map(view => {
-                const isHidden = hiddenViews.includes(view.key);
-                return (
-                  <div key={view.key} className={`flex items-center justify-between p-3 rounded-lg border ${isHidden ? "bg-destructive/5 border-destructive/20" : "bg-success/5 border-success/20"}`}>
-                    <div className="flex items-center gap-2">
-                      {isHidden ? <EyeOff className="h-4 w-4 text-destructive" /> : <Eye className="h-4 w-4 text-success" />}
-                      <span className="text-sm font-medium">{view.label}</span>
-                    </div>
-                    <Switch checked={!isHidden} onCheckedChange={() => toggleView(view.key)} />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {!visibilityClient && <p className="text-sm text-muted-foreground">Selecione um cliente para configurar as visões disponíveis</p>}
-        </div>
-      </div>
-
       {/* Add user dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
         <div className="space-y-3">
@@ -272,13 +181,8 @@ const Usuarios = () => {
           <input className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />
           <input type="password" className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm focus:outline-none" placeholder="Senha" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
           <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value as AppRole }))}>
-            <option value="admin">Admin</option><option value="colaborador">Colaborador</option><option value="cliente">Cliente</option>
+            <option value="admin">Admin</option><option value="cliente">Cliente</option>
           </select>
-          {form.role === "colaborador" && (
-            <select className="w-full h-9 px-3 rounded-lg bg-muted border-0 text-sm" value={form.colaborador_type} onChange={e => setForm(p => ({ ...p, colaborador_type: e.target.value as ColabType }))}>
-              <option value="gestor">Gestor de Tráfego</option><option value="designer">Designer</option><option value="cs">CS</option>
-            </select>
-          )}
         </div>
         <DialogFooter><Button onClick={() => { if (form.name && form.email && form.password) createMut.mutate(); }} disabled={createMut.isPending}>{createMut.isPending ? "Criando..." : "Criar Usuário"}</Button></DialogFooter>
       </DialogContent></Dialog>
@@ -312,7 +216,7 @@ const Usuarios = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
             <AlertDialogDescription>
-              O usuário <strong>{deleteUserId?.full_name}</strong> será excluído. Seus dados financeiros e contratos serão arquivados (inativo/cancelado). Esta ação não pode ser desfeita.
+              O usuário <strong>{deleteUserId?.full_name}</strong> será excluído. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
