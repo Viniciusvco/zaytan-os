@@ -255,7 +255,7 @@ const Laudos = () => {
                 <div className="flex items-center gap-2 shrink-0">
                   {(l.pdf_url || l.laudo_data?.pdf_path) && (
                     <Button variant="outline" size="sm" onClick={() => openPdf(l)} disabled={viewing === l.id}>
-                      <Eye className="h-3.5 w-3.5 mr-1" /> {viewing === l.id ? "..." : "Ver PDF"}
+                      <Download className="h-3.5 w-3.5 mr-1" /> {viewing === l.id ? "..." : "Baixar PDF"}
                     </Button>
                   )}
                   <Button
