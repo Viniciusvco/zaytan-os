@@ -20,6 +20,57 @@ const Laudos = () => {
   const [search, setSearch] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [selectedExisting, setSelectedExisting] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
+
+  const openPdf = async (laudo: any) => {
+    if (!laudo.pdf_url && !laudo.laudo_data?.pdf_path) {
+      toast.error("PDF não disponível");
+      return;
+    }
+    setViewing(laudo.id);
+    try {
+      // Try to derive storage path
+      let path: string | null = laudo.laudo_data?.pdf_path ?? null;
+      if (!path && laudo.pdf_url) {
+        const m = laudo.pdf_url.match(/\/laudos\/(.+)$/);
+        if (m) path = m[1];
+      }
+      if (path) {
+        const { data, error } = await supabase.storage.from("laudos").download(path);
+        if (error || !data) throw error || new Error("download falhou");
+        const url = URL.createObjectURL(data);
+        window.open(url, "_blank");
+        // revoke later
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else if (laudo.pdf_url) {
+        window.open(laudo.pdf_url, "_blank");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Não foi possível abrir o PDF");
+    } finally {
+      setViewing(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("laudos_avulsos").delete().eq("id", deleteTarget.id);
+    if (error) {
+      toast.error("Erro ao excluir laudo");
+      return;
+    }
+    // Try to remove the PDF from storage as well
+    const path: string | null = deleteTarget.laudo_data?.pdf_path
+      ?? (deleteTarget.pdf_url?.match(/\/laudos\/(.+)$/)?.[1] ?? null);
+    if (path) {
+      await supabase.storage.from("laudos").remove([path]);
+    }
+    toast.success("Laudo excluído");
+    setDeleteTarget(null);
+    qc.invalidateQueries({ queryKey: ["laudos-avulsos"] });
+  };
 
   // Resolve current client_id (for cliente role)
   const { data: myClient } = useQuery({
