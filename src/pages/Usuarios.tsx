@@ -44,6 +44,30 @@ const Usuarios = () => {
     },
   });
 
+  const { data: clientRoleMap = {} } = useQuery({
+    queryKey: ["client-user-roles-map"],
+    queryFn: async () => {
+      const { data: roles, error } = await supabase
+        .from("client_user_roles")
+        .select("user_id, client_role, client_id");
+      if (error) throw error;
+      const clientIds = Array.from(new Set((roles || []).map((r: any) => r.client_id)));
+      const { data: clients } = clientIds.length
+        ? await supabase.from("clients").select("id, name").in("id", clientIds)
+        : { data: [] as any[] };
+      const clientNameById: Record<string, string> = {};
+      (clients || []).forEach((c: any) => { clientNameById[c.id] = c.name; });
+      const map: Record<string, { client_role: string; client_name: string }> = {};
+      (roles || []).forEach((r: any) => {
+        map[r.user_id] = {
+          client_role: r.client_role,
+          client_name: clientNameById[r.client_id] || "—",
+        };
+      });
+      return map;
+    },
+  });
+
   const createMut = useMutation({
     mutationFn: async () => {
       const { error } = await createUser(form.email, form.password, form.name, form.role);
@@ -133,14 +157,29 @@ const Usuarios = () => {
             <th className="text-right text-xs font-medium text-muted-foreground px-4 py-3">Ações</th>
           </tr></thead>
           <tbody>
-            {filtered.map((u: any) => {
-              const tc = typeConfig[u.role] || typeConfig.cliente;
-              const contractDate = u.contract_start_date || u.created_at;
-              return (
-                <tr key={u.id} className={`border-b border-border last:border-0 hover:bg-muted/30 ${!u.active ? "opacity-50" : ""}`}>
-                  <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.full_name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}</div><span className="text-sm font-medium">{u.full_name}</span></div></td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
-                  <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${tc.className}`}>{tc.label}</span></td>
+              {filtered.map((u: any) => {
+                const tc = typeConfig[u.role] || typeConfig.cliente;
+                const contractDate = u.contract_start_date || u.created_at;
+                const teamInfo = (clientRoleMap as any)[u.id];
+                return (
+                  <tr key={u.id} className={`border-b border-border last:border-0 hover:bg-muted/30 ${!u.active ? "opacity-50" : ""}`}>
+                    <td className="px-4 py-3"><div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{u.full_name.split(" ").map((w: string) => w[0]).join("").slice(0, 2)}</div><span className="text-sm font-medium">{u.full_name}</span></div></td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{u.email}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`text-xs px-2 py-1 rounded-full ${tc.className}`}>{tc.label}</span>
+                        {teamInfo && (
+                          <>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent/40 text-foreground capitalize font-medium">
+                              {teamInfo.client_role}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex items-center gap-1">
+                              <Building2 className="h-2.5 w-2.5" /> {teamInfo.client_name}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </td>
                   <td className="px-4 py-3"><span className={`text-xs px-2 py-1 rounded-full ${u.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>{u.active ? "Ativo" : "Inativo"}</span></td>
                   <td className="px-4 py-3 text-center">
                     {u.role === "cliente" && (
