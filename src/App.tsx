@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { RoleProvider, useRole } from "@/contexts/RoleContext";
+import { RoleProvider } from "@/contexts/RoleContext";
 import { ClientRoleProvider } from "@/contexts/ClientRoleContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
@@ -17,8 +17,6 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function HomeRedirect() {
-  const { role } = useRole();
-  if (role === "cliente") return <Navigate to="/crm" replace />;
   return <Navigate to="/crm" replace />;
 }
 
