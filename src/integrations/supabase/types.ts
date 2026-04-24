@@ -381,6 +381,10 @@ export type Database = {
     }
     Functions: {
       get_user_client_id: { Args: { _user_id: string }; Returns: string }
+      get_user_client_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["client_role_type"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
