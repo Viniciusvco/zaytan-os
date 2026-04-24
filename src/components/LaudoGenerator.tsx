@@ -156,6 +156,7 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
       }
 
       if (isAvulso) {
+        const { data: authData } = await supabase.auth.getUser();
         const { error: insertErr } = await supabase.from("laudos_avulsos").insert({
           client_id: avulsoClientId,
           client_name: laudoToSave.clientName,
@@ -163,8 +164,9 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
           consultor_name: laudoToSave.consultorName || null,
           assessoria_name: laudoToSave.assessoriaName || null,
           numero_proposta: laudoToSave.numeroProposta || null,
-          laudo_data: laudoToSave as any,
+          laudo_data: { ...laudoToSave, pdf_path: fileName } as any,
           pdf_url: pdfUrl,
+          created_by: authData?.user?.id ?? null,
         });
         if (insertErr) console.error("Insert laudo error", insertErr);
         toast.success("Laudo gerado e salvo no histórico!");
