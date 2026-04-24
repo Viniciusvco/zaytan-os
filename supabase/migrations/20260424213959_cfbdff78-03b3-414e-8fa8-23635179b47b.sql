@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ALTER COLUMN crm_hidden SET DEFAULT true;
