@@ -42,28 +42,19 @@ export default function ClientUsersManagement() {
     }
     setCreating(true);
     try {
-      // Create user via edge function
+      // Edge function handles user creation + client_user_role assignment server-side
       const { data, error } = await supabase.functions.invoke("create-user", {
         body: {
           email: form.email,
           password: form.password,
           full_name: form.name,
           role: "cliente",
+          client_role: form.role,
+          supervisor_id: form.role === "vendedor" ? form.supervisor_id || null : null,
         },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
-
-      // Now assign client_user_role
-      const newProfileId = data?.profile_id || data?.user_id;
-      if (newProfileId) {
-        await supabase.from("client_user_roles").insert({
-          client_id: clientId,
-          user_id: newProfileId,
-          client_role: form.role,
-          supervisor_id: form.role === "vendedor" ? form.supervisor_id || null : null,
-        } as any);
-      }
 
       toast.success(`Usuário ${form.name} criado com sucesso!`);
       setOpen(false);
