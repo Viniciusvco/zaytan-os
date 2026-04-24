@@ -81,6 +81,8 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
 
   useEffect(() => {
     if (!open) return;
+    // Pré-carrega html2pdf assim que abrir (paraleliza com preenchimento do form)
+    import("html2pdf.js").catch(() => {});
     if (existingLaudoData) {
       setData(existingLaudoData);
     } else {
