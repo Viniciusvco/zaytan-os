@@ -1,6 +1,9 @@
-import { Target, UserCog } from "lucide-react";
+import { Target, UserCog, FileText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import zaytanLogo from "@/assets/zaytan-logo.png";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -8,28 +11,46 @@ import {
   SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 
-const adminItems = {
-  principal: [
-    { title: "CRM", url: "/crm", icon: Target },
-    { title: "Usuários", url: "/usuarios", icon: UserCog },
-  ],
-};
-
-const clienteItems = {
-  principal: [
-    { title: "CRM", url: "/crm", icon: Target },
-  ],
-  gestao: [
-    { title: "Gestão de Acessos", url: "/client-users", icon: UserCog },
-  ],
-};
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { role } = useRole();
+  const { profile } = useAuth();
 
-  const groups = role === "admin" ? adminItems : clienteItems;
+  // For cliente: check whether their CRM is hidden
+  const { data: myClient } = useQuery({
+    queryKey: ["sidebar-my-client", profile?.user_id],
+    queryFn: async () => {
+      if (!profile?.user_id) return null;
+      const { data } = await supabase
+        .from("clients")
+        .select("id, crm_hidden")
+        .eq("user_id", profile.user_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!profile && role === "cliente",
+  });
+
+  const crmHidden = role === "cliente" && (myClient as any)?.crm_hidden === true;
+
+  const groups: Record<string, { title: string; url: string; icon: any }[]> = role === "admin"
+    ? {
+        principal: [
+          { title: "CRM", url: "/crm", icon: Target },
+          { title: "Gerador de Laudos", url: "/laudos", icon: FileText },
+          { title: "Usuários", url: "/usuarios", icon: UserCog },
+        ],
+      }
+    : {
+        principal: [
+          ...(crmHidden ? [] : [{ title: "CRM", url: "/crm", icon: Target }]),
+          { title: "Gerador de Laudos", url: "/laudos", icon: FileText },
+        ],
+        gestao: [
+          { title: "Gestão de Acessos", url: "/client-users", icon: UserCog },
+        ],
+      };
 
   const groupLabels: Record<string, string> = {
     principal: "Principal",
@@ -77,7 +98,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-3">
         {!collapsed && (
           <div className="rounded-lg bg-muted/50 p-3">
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v9.0</p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Zaytan OS v9.1</p>
           </div>
         )}
       </SidebarFooter>

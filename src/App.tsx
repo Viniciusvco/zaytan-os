@@ -9,6 +9,7 @@ import { ClientRoleProvider } from "@/contexts/ClientRoleContext";
 import { AppLayout } from "@/components/AppLayout";
 import Login from "./pages/Login";
 import CRM from "./pages/CRM";
+import Laudos from "./pages/Laudos";
 import Usuarios from "./pages/Usuarios";
 import ClientUsersManagement from "./pages/ClientUsersManagement";
 import NotFound from "./pages/NotFound";
@@ -43,6 +44,7 @@ function ProtectedRoutes() {
           <Routes>
             <Route path="/" element={<HomeRedirect />} />
             <Route path="/crm" element={<CRM />} />
+            <Route path="/laudos" element={<Laudos />} />
             <Route path="/usuarios" element={<Usuarios />} />
             <Route path="/client-users" element={<ClientUsersManagement />} />
             <Route path="*" element={<NotFound />} />
