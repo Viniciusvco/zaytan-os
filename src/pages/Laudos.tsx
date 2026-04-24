@@ -5,8 +5,10 @@ import { useRole } from "@/contexts/RoleContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Plus, Download, Search, Calendar, User, Building2, Sparkles } from "lucide-react";
+import { FileText, Plus, Download, Search, Calendar, User, Building2, Sparkles, Trash2, Eye } from "lucide-react";
 import { LaudoGenerator } from "@/components/LaudoGenerator";
+import { toast } from "sonner";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const Laudos = () => {
   const { role } = useRole();
