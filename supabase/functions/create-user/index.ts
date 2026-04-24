@@ -70,22 +70,34 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Get caller's client role
-      const { data: callerClientRoleRow } = await supabaseAdmin
-        .from("client_user_roles")
-        .select("client_id, client_role")
-        .eq("user_id", callerProfile.id)
+      // Client owner should be treated as gerente even without a client_user_roles row
+      const { data: ownedClient } = await supabaseAdmin
+        .from("clients")
+        .select("id")
+        .eq("user_id", caller.id)
         .maybeSingle();
 
-      if (!callerClientRoleRow) {
-        return new Response(JSON.stringify({ error: "Você não tem permissão para criar usuários" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (ownedClient?.id) {
+        callerClientId = ownedClient.id;
+        callerClientRole = "gerente";
+      } else {
+        // Get caller's client role when they are a team member
+        const { data: callerClientRoleRow } = await supabaseAdmin
+          .from("client_user_roles")
+          .select("client_id, client_role")
+          .eq("user_id", callerProfile.id)
+          .maybeSingle();
 
-      callerClientId = callerClientRoleRow.client_id;
-      callerClientRole = callerClientRoleRow.client_role;
+        if (!callerClientRoleRow) {
+          return new Response(JSON.stringify({ error: "Você não tem permissão para criar usuários" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        callerClientId = callerClientRoleRow.client_id;
+        callerClientRole = callerClientRoleRow.client_role;
+      }
 
       // Only gerente or supervisor can create team members
       if (callerClientRole !== "gerente" && callerClientRole !== "supervisor") {
