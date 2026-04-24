@@ -242,12 +242,10 @@ const Laudos = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {l.pdf_url && (
-                    <a href={l.pdf_url} target="_blank" rel="noopener noreferrer">
-                      <Button variant="outline" size="sm">
-                        <Download className="h-3.5 w-3.5 mr-1" /> PDF
-                      </Button>
-                    </a>
+                  {(l.pdf_url || l.laudo_data?.pdf_path) && (
+                    <Button variant="outline" size="sm" onClick={() => openPdf(l)} disabled={viewing === l.id}>
+                      <Eye className="h-3.5 w-3.5 mr-1" /> {viewing === l.id ? "..." : "Ver PDF"}
+                    </Button>
                   )}
                   <Button
                     variant="ghost"
@@ -258,6 +256,15 @@ const Laudos = () => {
                     }}
                   >
                     Regerar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => setDeleteTarget(l)}
+                    title="Excluir laudo"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
