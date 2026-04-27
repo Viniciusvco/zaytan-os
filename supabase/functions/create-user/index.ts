@@ -43,7 +43,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if caller is admin
     const { data: adminRoles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
@@ -51,12 +50,10 @@ Deno.serve(async (req) => {
       .eq("role", "admin");
     const isAdmin = adminRoles && adminRoles.length > 0;
 
-    // If not admin, check if caller is a client manager/supervisor creating a team member
     let callerClientId: string | null = null;
     let callerClientRole: string | null = null;
 
     if (!isAdmin) {
-      // Get caller's profile id
       const { data: callerProfile } = await supabaseAdmin
         .from("profiles")
         .select("id")
@@ -70,18 +67,22 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Client owner should be treated as gerente even without a client_user_roles row
       const { data: ownedClient } = await supabaseAdmin
         .from("clients")
-        .select("id")
+        .select("id, can_create_users")
         .eq("user_id", caller.id)
         .maybeSingle();
 
       if (ownedClient?.id) {
         callerClientId = ownedClient.id;
         callerClientRole = "gerente";
+        if (ownedClient.can_create_users === false) {
+          return new Response(JSON.stringify({ error: "Criação de usuários desabilitada pelo administrador" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       } else {
-        // Get caller's client role when they are a team member
         const { data: callerClientRoleRow } = await supabaseAdmin
           .from("client_user_roles")
           .select("client_id, client_role")
@@ -97,9 +98,21 @@ Deno.serve(async (req) => {
 
         callerClientId = callerClientRoleRow.client_id;
         callerClientRole = callerClientRoleRow.client_role;
+
+        // Check the parent client's flag
+        const { data: parentClient } = await supabaseAdmin
+          .from("clients")
+          .select("can_create_users")
+          .eq("id", callerClientId)
+          .maybeSingle();
+        if (parentClient?.can_create_users === false) {
+          return new Response(JSON.stringify({ error: "Criação de usuários desabilitada pelo administrador" }), {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
       }
 
-      // Only gerente or supervisor can create team members
       if (callerClientRole !== "gerente" && callerClientRole !== "supervisor") {
         return new Response(JSON.stringify({ error: "Apenas gerente ou supervisor pode criar membros da equipe" }), {
           status: 403,
@@ -107,7 +120,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Supervisor can only create vendedor
       if (callerClientRole === "supervisor" && client_role && client_role !== "vendedor") {
         return new Response(JSON.stringify({ error: "Supervisor só pode criar vendedores" }), {
           status: 403,
@@ -115,7 +127,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Force role to 'cliente' for team members created by clients
       if (role !== "cliente") {
         return new Response(JSON.stringify({ error: "Membros da equipe devem ter role cliente" }), {
           status: 403,
@@ -124,7 +135,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Create auth user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -139,10 +149,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get profile id (auto-created by trigger)
     let profileId: string | null = null;
     if (newUser.user) {
-      // small wait then fetch
       for (let i = 0; i < 5; i++) {
         const { data: prof } = await supabaseAdmin
           .from("profiles")
@@ -157,7 +165,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update colaborador_type if provided (admin path)
     if (isAdmin && colaborador_type && newUser.user) {
       await supabaseAdmin
         .from("profiles")
@@ -165,7 +172,6 @@ Deno.serve(async (req) => {
         .eq("user_id", newUser.user.id);
     }
 
-    // If caller is a client manager/supervisor, assign client_user_role server-side
     if (!isAdmin && callerClientId && profileId) {
       const finalClientRole = client_role || "vendedor";
       const finalSupervisorId = finalClientRole === "vendedor" ? (supervisor_id || null) : null;
@@ -185,6 +191,17 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+
+    // Store credentials so creator (and admins) can view later
+    if (newUser.user) {
+      await supabaseAdmin.from("created_credentials").insert({
+        created_user_id: newUser.user.id,
+        email,
+        password,
+        created_by_user_id: caller.id,
+        client_id: callerClientId,
+      });
     }
 
     return new Response(JSON.stringify({ user: newUser.user, profile_id: profileId, user_id: newUser.user?.id }), {
