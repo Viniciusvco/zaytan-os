@@ -293,9 +293,14 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
 
             {/* Financiamento Corrigido - auto-calculated, read-only */}
             <div className="border rounded-xl p-4 space-y-3 bg-muted/30">
-              <h3 className="text-sm font-bold text-green-600">Financiamento Corrigido <span className="text-xs font-normal text-muted-foreground">(calculado automaticamente)</span></h3>
+              <h3 className="text-sm font-bold text-green-600 flex items-center gap-2">
+                Financiamento Corrigido
+                <span className="text-[10px] font-normal text-muted-foreground px-2 py-0.5 rounded-full bg-green-500/10 text-green-700">
+                  atualiza em tempo real
+                </span>
+              </h3>
 
-              <div className="bg-muted/50 rounded-lg p-3 space-y-2 border">
+              <div className="bg-card rounded-lg p-3 space-y-2 border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Nº da Proposta:</span>
                   <span className="font-bold">{data.numeroProposta || "Auto (ao exportar)"}</span>
@@ -305,24 +310,36 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                   <span className="font-bold text-green-600">APROVADO</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Novo Valor Parcela:</span>
-                  <span className="font-bold">R$ {fmt(novoValorParcela)}</span>
+                  <span className="text-muted-foreground">Valor Financiado:</span>
+                  <span className="font-bold">R$ {fmt(data.valorFinanciado)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Parcela Atual:</span>
+                  <span className="font-bold">R$ {fmt(data.valorParcela)}</span>
+                </div>
+                <div className="flex justify-between text-sm transition-colors">
+                  <span className="text-muted-foreground">Novo Valor Parcela <span className="text-[10px]">(-30%)</span>:</span>
+                  <span className="font-bold text-green-600">R$ {fmt(novoValorParcela)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Redução Mensal:</span>
                   <span className="font-bold text-green-600">R$ {fmt(reducaoMensal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Estorno Previsto:</span>
+                  <span className="text-muted-foreground">Estorno Previsto <span className="text-[10px]">({data.parcelasPagas || 0} pagas)</span>:</span>
                   <span className="font-bold">R$ {fmt(estornoPrevisto)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Redução Futura <span className="text-[10px]">({mesesRestantes} meses)</span>:</span>
+                  <span className="font-bold">R$ {fmt(reducaoFutura)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Meses Restantes:</span>
                   <span className="font-bold">{mesesRestantes}</span>
                 </div>
-                <div className="flex justify-between text-sm border-t pt-2">
-                  <span className="text-muted-foreground font-semibold">Redução Total:</span>
-                  <span className="font-bold text-green-600 text-lg">R$ {fmt(reducaoTotal)}</span>
+                <div className="flex justify-between items-center border-t pt-2 mt-1">
+                  <span className="text-sm font-semibold">Economia Total:</span>
+                  <span className="font-bold text-green-600 text-xl">R$ {fmt(reducaoTotal)}</span>
                 </div>
               </div>
             </div>
