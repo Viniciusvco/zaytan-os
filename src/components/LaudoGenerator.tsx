@@ -316,11 +316,11 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Valor Financiado:</span>
-                  <span className="font-bold">R$ {fmt(data.valorFinanciado)}</span>
+                  <span className="font-bold">R$ {fmt(valorFinanciadoNum)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Parcela Atual:</span>
-                  <span className="font-bold">R$ {fmt(data.valorParcela)}</span>
+                  <span className="font-bold">R$ {fmt(valorParcelaNum)}</span>
                 </div>
                 <div className="flex justify-between text-sm transition-colors">
                   <span className="text-muted-foreground">Novo Valor Parcela <span className="text-[10px]">(-30%)</span>:</span>
