@@ -97,11 +97,16 @@ export function LaudoGenerator({ open, onOpenChange, leadName, leadPhone, leadEm
   const set = (field: keyof LaudoFormData, value: string | number) =>
     setData(prev => ({ ...prev, [field]: value }));
 
-  // Auto-calculated "Financiamento Corrigido" values
-  const mesesRestantes = Math.max(0, data.numMeses - data.parcelasPagas);
-  const novoValorParcela = data.valorParcela * 0.70;
-  const reducaoMensal = data.valorParcela - novoValorParcela;
-  const estornoPrevisto = reducaoMensal * data.parcelasPagas;
+  // Auto-calculated "Financiamento Corrigido" values (coerce to number for safety)
+  const n = (v: any) => (typeof v === "number" ? v : Number(v) || 0);
+  const valorFinanciadoNum = n(data.valorFinanciado);
+  const numMesesNum = n(data.numMeses);
+  const valorParcelaNum = n(data.valorParcela);
+  const parcelasPagasNum = n(data.parcelasPagas);
+  const mesesRestantes = Math.max(0, numMesesNum - parcelasPagasNum);
+  const novoValorParcela = valorParcelaNum * 0.70;
+  const reducaoMensal = valorParcelaNum - novoValorParcela;
+  const estornoPrevisto = reducaoMensal * parcelasPagasNum;
   const reducaoFutura = reducaoMensal * mesesRestantes;
   const reducaoTotal = estornoPrevisto + reducaoFutura;
 
