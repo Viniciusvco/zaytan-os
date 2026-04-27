@@ -214,6 +214,7 @@ const Usuarios = () => {
       </div>
 
       <ClientCrmVisibility />
+      <CredentialsViewer />
 
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
