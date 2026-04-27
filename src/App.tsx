@@ -17,7 +17,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function HomeRedirect() {
-  return <Navigate to="/crm" replace />;
+  const { profile } = useAuth();
+  if (profile?.role === "admin") return <Navigate to="/crm" replace />;
+  // Cliente lands on Gerador de Laudos by default (CRM may be hidden)
+  return <Navigate to="/laudos" replace />;
 }
 
 function ProtectedRoutes() {

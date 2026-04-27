@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Power, PowerOff, Pencil, Trash2, Eye, EyeOff, Building2, FileText } from "lucide-react";
+import { Plus, Power, PowerOff, Pencil, Trash2, Eye, EyeOff, Building2, FileText, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -214,6 +214,7 @@ const Usuarios = () => {
       </div>
 
       <ClientCrmVisibility />
+      <CredentialsViewer />
 
 
       <Dialog open={showAdd} onOpenChange={setShowAdd}><DialogContent><DialogHeader><DialogTitle>Novo Usuário</DialogTitle></DialogHeader>
@@ -278,7 +279,7 @@ function ClientCrmVisibility() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, name, crm_hidden, active")
+        .select("id, name, crm_hidden, active, can_create_users")
         .order("name");
       if (error) throw error;
       return data || [];
@@ -301,14 +302,29 @@ function ClientCrmVisibility() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const toggleCreate = useMutation({
+    mutationFn: async ({ id, allow }: { id: string; allow: boolean }) => {
+      const { error } = await supabase
+        .from("clients")
+        .update({ can_create_users: allow } as any)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["clients-crm-visibility"] });
+      toast.success(vars.allow ? "Cliente pode criar usuários" : "Criação de usuários desabilitada");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold flex items-center gap-2">
-          <FileText className="h-4 w-4 text-primary" /> Visibilidade do CRM por Cliente
+          <FileText className="h-4 w-4 text-primary" /> Visibilidade do CRM e Permissões por Cliente
         </h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Quando o CRM estiver oculto, o cliente verá apenas o Gerador de Laudos no menu.
+          Controle se o CRM aparece e se o cliente pode criar logins de equipe.
         </p>
       </div>
 
@@ -337,17 +353,87 @@ function ClientCrmVisibility() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground">Ocultar CRM</span>
-                <Switch
-                  checked={!!c.crm_hidden}
-                  disabled={toggleMut.isPending}
-                  onCheckedChange={(checked) => toggleMut.mutate({ id: c.id, hidden: checked })}
-                />
+              <div className="flex items-center gap-6 shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Ocultar CRM</span>
+                  <Switch
+                    checked={!!c.crm_hidden}
+                    disabled={toggleMut.isPending}
+                    onCheckedChange={(checked) => toggleMut.mutate({ id: c.id, hidden: checked })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Criar usuários</span>
+                  <Switch
+                    checked={c.can_create_users !== false}
+                    disabled={toggleCreate.isPending}
+                    onCheckedChange={(checked) => toggleCreate.mutate({ id: c.id, allow: checked })}
+                  />
+                </div>
               </div>
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function CredentialsViewer() {
+  const [creds, setCreds] = useState<any[]>([]);
+  const [show, setShow] = useState<Record<string, boolean>>({});
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    supabase.from("created_credentials" as any).select("*").order("created_at", { ascending: false })
+      .then(({ data }) => setCreds((data as any[]) || []));
+  }, []);
+
+  const filtered = creds.filter((c) => c.email?.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-4">
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <FileText className="h-4 w-4 text-primary" /> Senhas de Usuários Criados
+        </h3>
+        <input
+          placeholder="Buscar e-mail..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 px-3 rounded-md bg-muted text-xs focus:outline-none w-56"
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <p className="p-4 text-sm text-muted-foreground">Nenhuma credencial registrada.</p>
+      ) : (
+        <table className="w-full">
+          <thead><tr className="border-b border-border">
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">E-mail</th>
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Senha</th>
+            <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Criado em</th>
+            <th className="text-right text-xs font-medium text-muted-foreground px-4 py-2">Ações</th>
+          </tr></thead>
+          <tbody>
+            {filtered.map((c) => (
+              <tr key={c.id} className="border-b border-border last:border-0">
+                <td className="px-4 py-2 text-sm">{c.email}</td>
+                <td className="px-4 py-2 text-sm font-mono">{show[c.id] ? c.password : "••••••••"}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString("pt-BR")}</td>
+                <td className="px-4 py-2 text-right">
+                  <div className="flex justify-end gap-1">
+                    <button onClick={() => setShow(p => ({ ...p, [c.id]: !p[c.id] }))} className="p-1.5 rounded-md hover:bg-muted">
+                      {show[c.id] ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    </button>
+                    <button onClick={() => { navigator.clipboard.writeText(`${c.email} / ${c.password}`); toast.success("Copiado"); }} className="p-1.5 rounded-md hover:bg-muted">
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

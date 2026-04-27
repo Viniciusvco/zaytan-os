@@ -70,6 +70,7 @@ export type Database = {
         Row: {
           active: boolean
           assigned_to: string | null
+          can_create_users: boolean
           company: string | null
           created_at: string
           crm_hidden: boolean
@@ -86,6 +87,7 @@ export type Database = {
         Insert: {
           active?: boolean
           assigned_to?: string | null
+          can_create_users?: boolean
           company?: string | null
           created_at?: string
           crm_hidden?: boolean
@@ -102,6 +104,7 @@ export type Database = {
         Update: {
           active?: boolean
           assigned_to?: string | null
+          can_create_users?: boolean
           company?: string | null
           created_at?: string
           crm_hidden?: boolean
@@ -124,6 +127,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      created_credentials: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          created_by_user_id: string | null
+          created_user_id: string
+          email: string
+          id: string
+          password: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          created_user_id: string
+          email: string
+          id?: string
+          password: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          created_user_id?: string
+          email?: string
+          id?: string
+          password?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       laudos_avulsos: {
         Row: {
